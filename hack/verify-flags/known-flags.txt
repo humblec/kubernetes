@@ -124,6 +124,7 @@ enable-dynamic-provisioning
 enable-hostpath-provisioner
 enable-network-storage-provisioner
 storage-config
+net-provider
 enable-server
 enable-swagger-ui
 enable-garbage-collector

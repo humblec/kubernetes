@@ -41,6 +41,7 @@ ENABLE_DAEMON=${ENABLE_DAEMON:-false}
 HOSTNAME_OVERRIDE=${HOSTNAME_OVERRIDE:-"127.0.0.1"}
 CLOUD_PROVIDER=${CLOUD_PROVIDER:-""}
 
+
 if [ "$(id -u)" != "0" ]; then
     echo "WARNING : This script MAY be run as root for docker socket / iptables functionality; if failures occur, retry as root." 2>&1
 fi
@@ -121,6 +122,7 @@ CPU_CFS_QUOTA=${CPU_CFS_QUOTA:-false}
 ENABLE_HOSTPATH_PROVISIONER=${ENABLE_HOSTPATH_PROVISIONER:-"false"}
 ENABLE_NETWORK_STORAGE_PROVISIONER=${ENABLE_NETWORK_STORAGE_PROVISIONER:-"true"}
 STORAGE_CONFIG=${STORAGE_CONFIG:-""}
+NET_PROVIDER=${NET_PROVIDER:-""}
 
 CLAIM_BINDER_SYNC_PERIOD=${CLAIM_BINDER_SYNC_PERIOD:-"15s"} # current k8s default
 
@@ -310,6 +312,7 @@ function start_controller_manager {
       --enable-hostpath-provisioner="${ENABLE_HOSTPATH_PROVISIONER}" \
       --enable-network-storage-provisioner="${ENABLE_NETWORK_STORAGE_PROVISIONER}" \
       --storage-config=${STORAGE_CONFIG} \
+      --net-provider=${NET_PROVIDER}\
       ${node_cidr_args} \
       --pvclaimbinder-sync-period="${CLAIM_BINDER_SYNC_PERIOD}" \
       --cloud-provider="${CLOUD_PROVIDER}" \

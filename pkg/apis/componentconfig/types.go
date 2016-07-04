@@ -557,6 +557,8 @@ type KubeControllerManagerConfiguration struct {
 	// storageConfigDir is the location where network storage provisioner
 	// keep its configuration file
 	StorageConfigDir string `json:"storageConfigDir"`
+
+	NetProvider string `json:"netProvider"`
 	// contentType is contentType of requests sent to apiserver.
 	ContentType string `json:"contentType"`
 	// kubeAPIQPS is the QPS to use while talking with kubernetes apiserver.
@@ -600,6 +602,7 @@ type VolumeConfiguration struct {
 	// StorageconfigDir is the full path of the directory in which the network
 	// storage provisioner should search for its configuratino file
 	StorageConfigDir string `json:"storageConfigDir"`
+	NetProvider      string `json:"netProvider"`
 }
 
 type PersistentVolumeRecyclerConfiguration struct {

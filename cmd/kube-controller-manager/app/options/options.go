@@ -74,11 +74,13 @@ func NewCMServer() *CMServer {
 			NodeCIDRMaskSize:                  24,
 			ConfigureCloudRoutes:              true,
 			TerminatedPodGCThreshold:          12500,
+
 			VolumeConfiguration: componentconfig.VolumeConfiguration{
 				EnableHostPathProvisioning:       false,
 				EnableDynamicProvisioning:        true,
 				EnableNetworkStorageProvisioning: true,
 				StorageConfigDir:                 "/tmp",
+				NetProvider:                      "glusterfs",
 				PersistentVolumeRecyclerConfiguration: componentconfig.PersistentVolumeRecyclerConfiguration{
 					MaximumRetry:             3,
 					MinimumTimeoutNFS:        300,
@@ -104,6 +106,7 @@ func (s *CMServer) AddFlags(fs *pflag.FlagSet) {
 	fs.Int32Var(&s.Port, "port", s.Port, "The port that the controller-manager's http service runs on")
 	fs.Var(componentconfig.IPVar{Val: &s.Address}, "address", "The IP address to serve on (set to 0.0.0.0 for all interfaces)")
 	fs.StringVar(&s.CloudProvider, "cloud-provider", s.CloudProvider, "The provider for cloud services.  Empty string for no provider.")
+
 	fs.StringVar(&s.CloudConfigFile, "cloud-config", s.CloudConfigFile, "The path to the cloud provider configuration file.  Empty string for no configuration file.")
 	fs.Int32Var(&s.ConcurrentEndpointSyncs, "concurrent-endpoint-syncs", s.ConcurrentEndpointSyncs, "The number of endpoint syncing operations that will be done concurrently. Larger number = faster endpoint updating, but more CPU (and network) load")
 	fs.Int32Var(&s.ConcurrentRCSyncs, "concurrent_rc_syncs", s.ConcurrentRCSyncs, "The number of replication controllers that are allowed to sync concurrently. Larger number = more responsive replica management, but more CPU (and network) load")
@@ -162,6 +165,7 @@ func (s *CMServer) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
 	fs.StringVar(&s.RootCAFile, "root-ca-file", s.RootCAFile, "If set, this root certificate authority will be included in service account's token secret. This must be a valid PEM-encoded CA bundle.")
 	fs.StringVar(&s.VolumeConfiguration.StorageConfigDir, "storage-config", s.VolumeConfiguration.StorageConfigDir, "The path to the dir containing network storage (ceph/glusterfs) configuration files.  Empty string for no configuration file.")
+	fs.StringVar(&s.VolumeConfiguration.NetProvider, "net-provider", s.VolumeConfiguration.NetProvider, "The provider for Network Storage Provisioners.  Empty string for no provider.")
 	fs.StringVar(&s.ContentType, "kube-api-content-type", s.ContentType, "Content type of requests sent to apiserver.")
 	fs.Float32Var(&s.KubeAPIQPS, "kube-api-qps", s.KubeAPIQPS, "QPS to use while talking with kubernetes apiserver")
 	fs.Int32Var(&s.KubeAPIBurst, "kube-api-burst", s.KubeAPIBurst, "Burst to use while talking with kubernetes apiserver")

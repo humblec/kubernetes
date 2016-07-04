@@ -111,7 +111,7 @@ func ProbeRecyclableVolumePlugins(config componentconfig.VolumeConfiguration) []
 // Not all cloudproviders have provisioning capability, which is the reason for the bool in the return to tell the caller to expect one or not.
 func NewVolumeProvisioner(cloud cloudprovider.Interface, config componentconfig.VolumeConfiguration) (volume.ProvisionableVolumePlugin, error) {
 	switch {
-	case config.EnableNetworkStorageProvisioning:
+	case config.EnableNetworkStorageProvisioning && config.NetProvider == "glusterfs":
 		return getProvisionablePluginFromVolumePlugins(glusterfs.ProbeVolumePlugins(config.StorageConfigDir))
 	case cloud == nil && config.EnableHostPathProvisioning:
 		return getProvisionablePluginFromVolumePlugins(host_path.ProbeVolumePlugins(volume.VolumeConfig{}))
