@@ -90,11 +90,21 @@ func (plugin *glusterfsPlugin) GetAccessModes() []api.PersistentVolumeAccessMode
 }
 
 func (plugin *glusterfsPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, _ volume.VolumeOptions) (volume.Mounter, error) {
+	/*
+		source, _ := plugin.getGlusterVolumeSource(spec)
+		ep_name := source.EndpointsName
+		ns := pod.Namespace
+		ep, err := plugin.host.GetKubeClient().Core().Endpoints(ns).Get(ep_name)
+		if err != nil {
+			glog.Errorf("glusterfs: failed to get endpoints %s[%v]", ep_name, err)
+			return nil, err
+		}
+	*/
+	var err error
 	source, _ := plugin.getGlusterVolumeSource(spec)
 	ep_name := source.EndpointsName
-	ns := pod.Namespace
-	ep, err := plugin.host.GetKubeClient().Core().Endpoints(ns).Get(ep_name)
-	if err != nil {
+	ep := string(ep_name)
+	if ep == "" {
 		glog.Errorf("glusterfs: failed to get endpoints %s[%v]", ep_name, err)
 		return nil, err
 	}
@@ -112,7 +122,7 @@ func (plugin *glusterfsPlugin) getGlusterVolumeSource(spec *volume.Spec) (*api.G
 	}
 }
 
-func (plugin *glusterfsPlugin) newMounterInternal(spec *volume.Spec, ep *api.Endpoints, pod *api.Pod, mounter mount.Interface, exe exec.Interface) (volume.Mounter, error) {
+func (plugin *glusterfsPlugin) newMounterInternal(spec *volume.Spec, ep string, pod *api.Pod, mounter mount.Interface, exe exec.Interface) (volume.Mounter, error) {
 	source, readOnly := plugin.getGlusterVolumeSource(spec)
 	return &glusterfsMounter{
 		glusterfs: &glusterfs{
@@ -156,7 +166,8 @@ type glusterfs struct {
 
 type glusterfsMounter struct {
 	*glusterfs
-	hosts    *api.Endpoints
+	//hosts    *api.Endpoints
+	hosts    string
 	path     string
 	readOnly bool
 	exe      exec.Interface
@@ -263,22 +274,33 @@ func (b *glusterfsMounter) setUpAtInternal(dir string) error {
 	options = append(options, "log-level=ERROR")
 	options = append(options, "log-file="+log)
 
-	addr := make(map[string]struct{})
-	for _, s := range b.hosts.Subsets {
-		for _, a := range s.Addresses {
-			addr[a.IP] = struct{}{}
-		}
-	}
+	/*
+		addr := make(map[string]struct{})
 
+		for _, s := range b.hosts.Subsets {
+			for _, a := range s.Addresses {
+				addr[a.IP] = struct{}{}
+			}
+		}
+
+	*/
+	//addr := string("192.168.43.149")
+	errs = b.mounter.Mount(b.hosts+":"+b.path, dir, "glusterfs", options)
+	if errs == nil {
+		glog.Infof("glusterfs: successfully mounted %s", dir)
+		return nil
+	}
 	// Avoid mount storm, pick a host randomly.
 	// Iterate all hosts until mount succeeds.
-	for hostIP := range addr {
-		errs = b.mounter.Mount(hostIP+":"+b.path, dir, "glusterfs", options)
-		if errs == nil {
-			glog.Infof("glusterfs: successfully mounted %s", dir)
-			return nil
+	/*
+		for hostIP := range addr {
+			errs = b.mounter.Mount(hostIP+":"+b.path, dir, "glusterfs", options)
+			if errs == nil {
+				glog.Infof("glusterfs: successfully mounted %s", dir)
+				return nil
+			}
 		}
-	}
+	*/
 
 	// Failed mount scenario.
 	// Since gluster does not return eror text

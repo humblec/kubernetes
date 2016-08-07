@@ -96,8 +96,8 @@ func doTestPlugin(t *testing.T, spec *volume.Spec) {
 	if err != nil {
 		t.Errorf("Can't find the plugin by name")
 	}
-	ep := &api.Endpoints{ObjectMeta: api.ObjectMeta{Name: "foo"}, Subsets: []api.EndpointSubset{{
-		Addresses: []api.EndpointAddress{{IP: "127.0.0.1"}}}}}
+	//ep := &api.Endpoints{ObjectMeta: api.ObjectMeta{Name: "foo"}, Subsets: []api.EndpointSubset{{
+	//	Addresses: []api.EndpointAddress{{IP: "127.0.0.1"}}}}}
 	var fcmd exec.FakeCmd
 	fcmd = exec.FakeCmd{
 		CombinedOutputScript: []exec.FakeCombinedOutputAction{
@@ -113,7 +113,8 @@ func doTestPlugin(t *testing.T, spec *volume.Spec) {
 		},
 	}
 	pod := &api.Pod{ObjectMeta: api.ObjectMeta{UID: types.UID("poduid")}}
-	mounter, err := plug.(*glusterfsPlugin).newMounterInternal(spec, ep, pod, &mount.FakeMounter{}, &fake)
+	mounter, err := plug.(*glusterfsPlugin).newMounterInternal(spec, "127.0.0.1", pod, &mount.FakeMounter{}, &fake)
+	//mounter, err := plug.(*glusterfsPlugin).newMounterInternal(spec, ep, pod, &mount.FakeMounter{}, &fake)
 	volumePath := mounter.GetPath()
 	if err != nil {
 		t.Errorf("Failed to make a new Mounter: %v", err)

@@ -37,7 +37,9 @@ if ! which go-bindata &>/dev/null ; then
 fi
 
 BINDATA_OUTPUT="${KUBE_ROOT}/test/e2e/generated/bindata.go"
-go-bindata -nometadata -prefix "${KUBE_ROOT}" -o ${BINDATA_OUTPUT} -pkg generated \
+# TODO: -nometadata is not supported with f24 rpm, so removing -nometadata for now
+# go-bindata -nometadata -prefix "${KUBE_ROOT}" -o ${BINDATA_OUTPUT} -pkg generated \
+go-bindata -prefix "${KUBE_ROOT}" -o ${BINDATA_OUTPUT} -pkg generated \
 	-ignore .jpg -ignore .png -ignore .md \
 	"${KUBE_ROOT}/examples/..." \
 	"${KUBE_ROOT}/docs/user-guide/..." \
