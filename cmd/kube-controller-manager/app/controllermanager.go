@@ -405,11 +405,12 @@ func StartControllers(s *options.CMServer, kubeClient *client.Client, kubeconfig
 		ProbeControllerVolumePlugins(cloud, s.VolumeConfiguration),
 		cloud,
 		s.ClusterName,
-		// volumeSource, claimSource, classSource, eventRecorder
-		nil, nil, nil, nil,
+		nil, // volumeSource
+		nil, // claimSource
+		nil, // classSource
+		nil, // eventRecorder
 		s.VolumeConfiguration.EnableDynamicProvisioning,
-		// deault storageClass
-		"",
+		"", // default storageClass
 	)
 	volumeController.Run()
 	time.Sleep(wait.Jitter(s.ControllerStartInterval.Duration, ControllerStartJitter))
