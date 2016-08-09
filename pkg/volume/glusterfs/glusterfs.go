@@ -92,6 +92,7 @@ func (plugin *glusterfsPlugin) GetAccessModes() []api.PersistentVolumeAccessMode
 func (plugin *glusterfsPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, _ volume.VolumeOptions) (volume.Mounter, error) {
 	source, _ := plugin.getGlusterVolumeSource(spec)
 	ep_name := source.EndpointsName
+	hostlist := source.Servers
 	ns := pod.Namespace
 	ep, err := plugin.host.GetKubeClient().Core().Endpoints(ns).Get(ep_name)
 	if err != nil {
@@ -99,7 +100,8 @@ func (plugin *glusterfsPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, _ vol
 		return nil, err
 	}
 	glog.V(1).Infof("glusterfs: endpoints %v", ep)
-	return plugin.newMounterInternal(spec, ep, pod, plugin.host.GetMounter(), exec.New())
+	glog.V(1).Infof("glusterfs: hostlist %v", hostlist)
+	return plugin.newMounterInternal(spec, ep, pod, plugin.host.GetMounter(), exec.New(), hostlist)
 }
 
 func (plugin *glusterfsPlugin) getGlusterVolumeSource(spec *volume.Spec) (*api.GlusterfsVolumeSource, bool) {
@@ -112,7 +114,7 @@ func (plugin *glusterfsPlugin) getGlusterVolumeSource(spec *volume.Spec) (*api.G
 	}
 }
 
-func (plugin *glusterfsPlugin) newMounterInternal(spec *volume.Spec, ep *api.Endpoints, pod *api.Pod, mounter mount.Interface, exe exec.Interface) (volume.Mounter, error) {
+func (plugin *glusterfsPlugin) newMounterInternal(spec *volume.Spec, ep *api.Endpoints,  pod *api.Pod, mounter mount.Interface, exe exec.Interface, hostlist string) (volume.Mounter, error) {
 	source, readOnly := plugin.getGlusterVolumeSource(spec)
 	return &glusterfsMounter{
 		glusterfs: &glusterfs{
@@ -122,6 +124,7 @@ func (plugin *glusterfsPlugin) newMounterInternal(spec *volume.Spec, ep *api.End
 			plugin:  plugin,
 		},
 		hosts:    ep,
+		servers: hostlist,
 		path:     source.Path,
 		readOnly: readOnly,
 		exe:      exe}, nil
@@ -157,6 +160,7 @@ type glusterfs struct {
 type glusterfsMounter struct {
 	*glusterfs
 	hosts    *api.Endpoints
+	servers  string
 	path     string
 	readOnly bool
 	exe      exec.Interface

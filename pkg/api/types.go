@@ -629,6 +629,9 @@ type GlusterfsVolumeSource struct {
 	// Required: EndpointsName is the endpoint name that details Glusterfs topology
 	EndpointsName string `json:"endpoints"`
 
+    // Optional: Servers is the gluster server list as a string seperated by a comma.
+    Servers string `json:"servers"`
+
 	// Required: Path is the Glusterfs volume path
 	Path string `json:"path"`
 
