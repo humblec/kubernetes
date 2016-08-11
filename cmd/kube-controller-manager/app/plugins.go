@@ -42,7 +42,7 @@ import (
 	"k8s.io/kubernetes/pkg/volume/host_path"
 	"k8s.io/kubernetes/pkg/volume/nfs"
 	"k8s.io/kubernetes/pkg/volume/vsphere_volume"
-
+	"k8s.io/kubernetes/pkg/volume/glusterfs"
 	"github.com/golang/glog"
 )
 
@@ -97,7 +97,8 @@ func ProbeControllerVolumePlugins(cloud cloudprovider.Interface, config componen
 		glog.Fatalf("Could not create NFS recycler pod from file %s: %+v", config.PersistentVolumeRecyclerConfiguration.PodTemplateFilePathNFS, err)
 	}
 	allPlugins = append(allPlugins, nfs.ProbeVolumePlugins(nfsConfig)...)
-
+	allPlugins = append(allPlugins, glusterfs.ProbeVolumePlugins()...)
+	
 	switch {
 	case cloud != nil && aws.ProviderName == cloud.ProviderName():
 		allPlugins = append(allPlugins, aws_ebs.ProbeVolumePlugins()...)
