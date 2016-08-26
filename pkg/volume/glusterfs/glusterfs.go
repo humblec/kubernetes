@@ -290,37 +290,29 @@ func (b *glusterfsMounter) setUpAtInternal(dir string) error {
 	log := path.Join(p, b.pod.Name+"-glusterfs.log")
 	options = append(options, "log-level=ERROR")
 	options = append(options, "log-file="+log)
-	if b.servers != "" {
-		addrhosts := b.servers
-		addr := dstrings.Split(addrhosts, ",")
-		glog.V(1).Infof("glusterfs: addr and addrhosts %v : %v", addr, addrhosts)
-		for ip, _ := range addr {
-			errs = b.mounter.Mount(addr[ip]+":"+b.path, dir, "glusterfs", options)
-			if errs == nil {
-				glog.Infof("glusterfs: successfully mounted %s", dir)
-				return nil
-			}
-		}
-
-	} else {
+	var addrlist []string
+	if b.hosts != nil || b.servers != "" {
 		addr := make(map[string]struct{})
-		for _, s := range b.hosts.Subsets {
-			for _, a := range s.Addresses {
-				addr[a.IP] = struct{}{}
+		if b.hosts != nil {
+			for _, s := range b.hosts.Subsets {
+				for _, a := range s.Addresses {
+					addr[a.IP] = struct{}{}
+					addrlist = append(addrlist, a.IP)
+				}
 			}
+		} else {
+			addrlist = dstrings.Split(b.servers, ",")
 		}
-
 		// Avoid mount storm, pick a host randomly.
 		// Iterate all hosts until mount succeeds.
-		for hostIP := range addr {
-			errs = b.mounter.Mount(hostIP+":"+b.path, dir, "glusterfs", options)
+		for _, ip := range addrlist {
+			errs = b.mounter.Mount(ip+":"+b.path, dir, "glusterfs", options)
 			if errs == nil {
 				glog.Infof("glusterfs: successfully mounted %s", dir)
 				return nil
 			}
 		}
 	}
-
 	// Failed mount scenario.
 	// Since gluster does not return eror text
 	// it all goes in a log file, we will read the log file
@@ -492,8 +484,7 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *api.GlusterfsVolumeSourc
 		return nil, 0, fmt.Errorf("error creating volume %v", err)
 	}
 	glog.V(1).Infof("glusterfs: volume with size :%d and name:%s created", volume.Size, volume.Name)
-	dhostlistf := dstrings.Join(volume.Mount.GlusterFS.Hosts[:], " ")
-	dhostlistf = dstrings.Replace(dhostlistf, " ", ",", -1)
+	dhostlistf := dstrings.Join(volume.Mount.GlusterFS.Hosts[:], ",")
 	return &api.GlusterfsVolumeSource{
 		EndpointsName: p.glusterfsClusterConf.glusterep,
 		Servers:       dhostlistf,
