@@ -272,7 +272,7 @@ func (c *glusterfsUnmounter) cleanup(dir string) error {
 
 func (b *glusterfsMounter) setUpAtInternal(dir string) error {
 	var errs error
-
+	backupservers := []string{}
 	options := []string{}
 	if b.readOnly {
 		options = append(options, "ro")
@@ -292,26 +292,35 @@ func (b *glusterfsMounter) setUpAtInternal(dir string) error {
 	var addrlist []string
 	if b.hosts != nil || len(b.servers) != 0 {
 		addr := make(map[string]struct{})
-		if b.hosts != nil {
+		if b.hosts.Subsets != nil {
+			//glog.V(1).Infof("glusterfs: b.hosts %v", b.hosts.Subsets)
 			for _, s := range b.hosts.Subsets {
 				for _, a := range s.Addresses {
 					addr[a.IP] = struct{}{}
 					addrlist = append(addrlist, a.IP)
 				}
 			}
+
 		} else {
+			//glog.V(1).Infof("glusterfs: b.Servers %v", b.servers)
 			addrlist = b.servers
 		}
-		// Avoid mount storm, pick a host randomly.
-		// Iterate all hosts until mount succeeds.
-		for _, ip := range addrlist {
-			errs = b.mounter.Mount(ip+":"+b.path, dir, "glusterfs", options)
-			if errs == nil {
-				glog.Infof("glusterfs: successfully mounted %s", dir)
-				return nil
-			}
+	}
+	// Avoid mount storm, pick a host randomly.
+	// Iterate all hosts until mount succeeds.
+	for indx, ip := range addrlist {
+		errs = b.mounter.Mount(ip+":"+b.path, dir, "glusterfs", options)
+		if errs == nil {
+			glog.Infof("glusterfs: successfully mounted %s with IP :%v", dir, ip)
+			backupservers = append(backupservers, dstrings.Join(addrlist[(indx+1):], ","))
+			glog.V(1).Infof("glusterfs: Backup Servers: %v", dstrings.Join(backupservers, ","))
+			options = append(options, "backup-volfile-servers="+dstrings.Join(backupservers, ","))
+			return nil
+		} else {
+			backupservers = append(backupservers, ip)
 		}
 	}
+
 	// Failed mount scenario.
 	// Since gluster does not return eror text
 	// it all goes in a log file, we will read the log file
@@ -478,6 +487,7 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *api.GlusterfsVolumeSourc
 	}
 	volumeReq := &gapi.VolumeCreateRequest{Size: sz}
 	volume, err := cli.VolumeCreate(volumeReq)
+	glog.V(1).Infof("glusterfs: Dyn Volume:%v [%v]", volume, volume.Mount.GlusterFS.Options)
 	if err != nil {
 		glog.Errorf("glusterfs: error creating volume %s ", err)
 		return nil, 0, fmt.Errorf("error creating volume %v", err)
