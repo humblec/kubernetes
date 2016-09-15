@@ -385,12 +385,14 @@ func (plugin *glusterfsPlugin) newDeleterInternal(spec *volume.Spec) (volume.Del
 				plugin:  plugin,
 			},
 			path: spec.PersistentVolume.Spec.Glusterfs.Path,
-		}}, nil
+		},
+		volumeSource: *spec.PersistentVolume.Spec.Glusterfs}, nil
 }
 
 type glusterfsVolumeDeleter struct {
 	*glusterfsMounter
 	*glusterfsClusterConf
+	volumeSource api.GlusterfsVolumeSource
 }
 
 func (d *glusterfsVolumeDeleter) GetPath() string {
@@ -409,12 +411,43 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 		glog.Errorf("glusterfs: failed to create gluster rest client")
 		return fmt.Errorf("glusterfs: failed to create gluster rest client, REST server authentication failed")
 	}
+	volumeinfo, err := cli.VolumeInfo(newvolumetodel)
+	if err != nil {
+		glog.Errorf("glusterfs: failed to get volume details")
+	}
 	err = cli.VolumeDelete(newvolumetodel)
 	if err != nil {
 		glog.Errorf("glusterfs: error when deleting the volume :%s", err)
 		return err
 	}
 	glog.V(2).Infof("glusterfs: volume %s deleted successfully", volumetodel)
+	pvsource := d.volumeSource
+	var dyep,dyns string
+	if pvsource.EndpointsNameSpace != nil {
+		dyns = *pvsource.EndpointsNameSpace
+	} else {
+		dyns = d.glusterfsClusterConf.glusterepns
+	}
+	if pvsource.EndpointsName != "" {
+		dyep = pvsource.EndpointsName
+	} else {
+		dyep = d.glusterfsClusterConf.glusterep
+	}
+	if volumeinfo != nil {
+		clusterinfo, err := cli.ClusterInfo(volumeinfo.Cluster)
+		if err != nil {
+			glog.Errorf("glusterfs: failed to get cluster details")
+		}
+		if clusterinfo != nil && len(clusterinfo.Volumes) == 0 {
+				err = d.DeleteEpSvc(dyns, dyep)
+				if err != nil {
+					glog.Errorf("glusterfs: error when deleting endpoint/service :%s", err)
+					return err
+				}
+		} else {
+			glog.V(3).Infof("glusterfs: cluster is not empty")
+		}
+	}
 	return nil
 }
 
@@ -441,7 +474,6 @@ func (r *glusterfsVolumeProvisioner) Provision() (*api.PersistentVolume, error) 
 			r.plugin.clusterconf.glusterRestUser = v
 		case "restuserkey":
 			r.plugin.clusterconf.glusterRestUserKey = v
-
 		default:
 			return nil, fmt.Errorf("glusterfs: invalid option %q for volume plugin %s", k, r.plugin.GetPluginName())
 		}
@@ -493,6 +525,10 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *api.GlusterfsVolumeSourc
 	}
 	glog.V(1).Infof("glusterfs: volume with size :%d and name:%s created", volume.Size, volume.Name)
 	clusterinfo, err := cli.ClusterInfo(volume.Cluster)
+	if err != nil {
+		glog.Errorf("glusterfs: failed to get cluster details")
+		return nil, 0, fmt.Errorf("failed to get cluster details %v", err)
+	}
 	var dhostlistf []string
 	for _, node := range clusterinfo.Nodes {
 			nodei, err := cli.NodeInfo(string(node))
@@ -561,4 +597,20 @@ func (p *glusterfsVolumeProvisioner) CreateEpSvc(epns string, depsertoc string, 
 		}
 	}
 	return dep,dser,nil
+}
+
+func (d *glusterfsVolumeDeleter) DeleteEpSvc(epns string, depsertod string ) (err error) {
+	err = d.plugin.host.GetKubeClient().Core().Endpoints(epns).Delete(depsertod,nil)
+	if err != nil {
+		glog.Errorf("glusterfs: failed to delete endpoint %s  error : %v", depsertod, err)
+		fmt.Errorf("error deleting endpoint %v", err)
+	}
+	glog.V(1).Infof("glusterfs: endpoint %s deleted successfully", depsertod)
+	err = d.plugin.host.GetKubeClient().Core().Services(epns).Delete(depsertod,nil)
+	if err != nil {
+			glog.Errorf("glusterfs: failed to delete service %s error %v", depsertod, err)
+			fmt.Errorf("error deleting service %v", err)
+	}
+	glog.V(1).Infof("glusterfs: service %s deleted successfully", depsertod)
+	return nil
 }
