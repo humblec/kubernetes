@@ -696,7 +696,7 @@ func printGlusterfsVolumeSource(glusterfs *api.GlusterfsVolumeSource, out io.Wri
 		"    EndpointsNameSpace:\t%v\n"+
 		"    Path:\t%v\n"+
 		"    ReadOnly:\t%v\n",
-		glusterfs.EndpointsName, glusterfs.EndpointsNameSpace, glusterfs.Path, glusterfs.ReadOnly)
+		glusterfs.EndpointsName, *glusterfs.EndpointsNameSpace, glusterfs.Path, glusterfs.ReadOnly)
 }
 
 func printPersistentVolumeClaimVolumeSource(claim *api.PersistentVolumeClaimVolumeSource, out io.Writer) {

@@ -104,11 +104,12 @@ func (plugin *glusterfsPlugin) GetAccessModes() []api.PersistentVolumeAccessMode
 func (plugin *glusterfsPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, _ volume.VolumeOptions) (volume.Mounter, error) {
 	source, _ := plugin.getGlusterVolumeSource(spec)
 	ep_name := source.EndpointsName
-	//TODO
-	// Make sure pod's ns is considered here and not volumesource
-	//ep_namespace := source.EndpointsNameSpace
-	//ns := ep_namespace
-	ns := pod.Namespace
+	var ns string
+	if source.EndpointsNameSpace != nil {
+		ns = *source.EndpointsNameSpace
+	} else {
+		ns = pod.Namespace
+	}
 	ep, err := plugin.host.GetKubeClient().Core().Endpoints(ns).Get(ep_name)
 	if err != nil && len(ns) == 0 {
 		glog.Errorf("glusterfs: failed to get endpoints %s[%v]", ep_name, err)
@@ -168,7 +169,6 @@ func (plugin *glusterfsPlugin) ConstructVolumeSpec(volumeName, mountPath string)
 		VolumeSource: api.VolumeSource{
 			Glusterfs: &api.GlusterfsVolumeSource{
 				EndpointsName: volumeName,
-				EndpointsNameSpace: volumeName,
 				Path:          volumeName,
 			},
 		},
@@ -518,7 +518,7 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *api.GlusterfsVolumeSourc
 	glog.V(1).Infof("glusterfs: dynamic ep %#v and svc : %#v ", dep, dser)
 	return &api.GlusterfsVolumeSource{
 		EndpointsName: dep.Name,
-		EndpointsNameSpace: dendpointns,
+		EndpointsNameSpace: &dendpointns,
 		Path:          volume.Name,
 		ReadOnly:      false,
 	}, sz, nil
