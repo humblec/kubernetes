@@ -59,6 +59,7 @@ const (
 	dynamicepsvcprefix 		= "cluster-"
 	replicacount        = 3
 	durabilitytype      = "replicate"
+	defaultgid  = 1000
 )
 
 func (plugin *glusterfsPlugin) Init(host volume.VolumeHost) error {
@@ -365,6 +366,7 @@ type glusterfsClusterConf struct {
 	glusterRestUser    string
 	glusterRestUserKey string
 	glusterEndpointNamespace        string
+	glusterGid       int
 }
 
 type glusterfsVolumeProvisioner struct {
@@ -473,6 +475,8 @@ func (r *glusterfsVolumeProvisioner) Provision() (*api.PersistentVolume, error) 
 			r.plugin.clusterconf.glusterRestUser = v
 		case "restuserkey":
 			r.plugin.clusterconf.glusterRestUserKey = v
+		case "gid":
+			r.plugin.clusterconf.glusterGid, err = strconv.Atoi(v)
 		default:
 			return nil, fmt.Errorf("glusterfs: invalid option %q for volume plugin %s", k, r.plugin.GetPluginName())
 		}
@@ -487,6 +491,9 @@ func (r *glusterfsVolumeProvisioner) Provision() (*api.PersistentVolume, error) 
 		r.plugin.clusterconf.glusterEndpointNamespace = "default"
 	}
 
+	if r.plugin.clusterconf.glusterGid != 0 {
+		r.plugin.clusterconf.glusterGid = defaultgid
+	}
 	r.glusterfsClusterConf = r.plugin.clusterconf
 	glusterfs, sizeGB, err := r.CreateVolume()
 	if err != nil {
@@ -516,7 +523,7 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *api.GlusterfsVolumeSourc
 		glog.Errorf("glusterfs: failed to create gluster rest client")
 		return nil, 0, fmt.Errorf("failed to create gluster REST client, REST server authentication failed")
 	}
-	volumeReq := &gapi.VolumeCreateRequest{Size: sz, Durability: gapi.VolumeDurabilityInfo{Type: durabilitytype, Replicate: gapi.ReplicaDurability{Replica: replicacount}}}
+	volumeReq := &gapi.VolumeCreateRequest{Size: sz, Gid: p.glusterfsClusterConf.glusterGid, Durability: gapi.VolumeDurabilityInfo{Type: durabilitytype, Replicate: gapi.ReplicaDurability{Replica: replicacount}}}
 	volume, err := cli.VolumeCreate(volumeReq)
 	if err != nil {
 		glog.Errorf("glusterfs: error creating volume %s ", err)
