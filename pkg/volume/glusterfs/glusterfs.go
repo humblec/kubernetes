@@ -64,8 +64,8 @@ const (
 	volPrefix                   = "vol_"
 	dynamicEpSvcPrefix          = "glusterfs-dynamic-"
 	replicaCount                = 3
-	gidMax                      = 600000
-	gidMin                      = 2000
+	defaultGidMin               = 2000
+	defaultGidMax               = 600000
 	durabilityType              = "replicate"
 	secretKeyName               = "key" // key name used in secret
 	annGlusterURL               = "glusterfs.kubernetes.io/url"
@@ -391,6 +391,8 @@ type provisioningConfig struct {
 	secretNamespace string
 	secretName      string
 	secretValue     string
+	gidMin          int64
+	gidMax          int64
 }
 
 type glusterfsVolumeProvisioner struct {
@@ -501,7 +503,14 @@ func (r *glusterfsVolumeProvisioner) Provision() (*api.PersistentVolume, error) 
 	}
 	r.provisioningConfig = *cfg
 	glog.V(4).Infof("glusterfs: creating volume with configuration %+v", r.provisioningConfig)
-	reqGid = gidMin + gidRandomizer.Int63n(gidMax)
+
+	if r.provisioningConfig.gidMin < defaultGidMin {
+		r.provisioningConfig.gidMin = defaultGidMin
+	}
+	if r.provisioningConfig.gidMax > defaultGidMax {
+		r.provisioningConfig.gidMax = defaultGidMax
+	}
+	reqGid = r.provisioningConfig.gidMin + gidRandomizer.Int63n(r.provisioningConfig.gidMax)
 	glusterfs, sizeGB, err := r.CreateVolume(reqGid)
 	if err != nil {
 		glog.Errorf("glusterfs: create volume err: %v.", err)
@@ -692,6 +701,16 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 			cfg.secretNamespace = v
 		case "restauthenabled":
 			authEnabled = dstrings.ToLower(v) == "true"
+		case "gidmin":
+			cfg.gidMin, err = strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				fmt.Errorf("glusterfs: invalid value for option %q for volume plugin %s", k, glusterfsPluginName)
+			}
+		case "gidmax":
+			cfg.gidMax, err = strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				fmt.Errorf("glusterfs: invalid value for option %q for volume plugin %s", k, glusterfsPluginName)
+			}
 		default:
 			return nil, fmt.Errorf("glusterfs: invalid option %q for volume plugin %s", k, glusterfsPluginName)
 		}
