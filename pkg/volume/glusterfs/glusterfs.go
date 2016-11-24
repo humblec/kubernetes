@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strconv"
 	dstrings "strings"
 
 	"github.com/golang/glog"
@@ -30,12 +31,15 @@ import (
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	"k8s.io/kubernetes/pkg/registry/core/service/portallocator"
 	"k8s.io/kubernetes/pkg/types"
 	"k8s.io/kubernetes/pkg/util/exec"
 	"k8s.io/kubernetes/pkg/util/mount"
+	"k8s.io/kubernetes/pkg/util/net"
 	"k8s.io/kubernetes/pkg/util/strings"
 	"k8s.io/kubernetes/pkg/volume"
 	volutil "k8s.io/kubernetes/pkg/volume/util"
+	"k8s.io/kubernetes/pkg/volume/util/volumehelper"
 )
 
 // This is the primary entrypoint for volume plugins.
@@ -60,6 +64,8 @@ const (
 	volPrefix                   = "vol_"
 	dynamicEpSvcPrefix          = "glusterfs-dynamic-"
 	replicaCount                = 3
+	defaultGidMin               = "2000"
+	defaultGidMax               = "65535"
 	durabilityType              = "replicate"
 	secretKeyName               = "key" // key name used in secret
 	annGlusterURL               = "glusterfs.kubernetes.io/url"
@@ -385,6 +391,8 @@ type provisioningConfig struct {
 	secretNamespace string
 	secretName      string
 	secretValue     string
+	gidMin          string
+	gidMax          string
 }
 
 type glusterfsVolumeProvisioner struct {
@@ -433,7 +441,6 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 	if err != nil {
 		return err
 	}
-
 	cfg, err := parseClassParameters(class.Parameters, d.plugin.host.GetKubeClient())
 	if err != nil {
 		return err
@@ -481,6 +488,7 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 
 func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	var err error
+	var reqGid int64
 	if r.options.PVC.Spec.Selector != nil {
 		glog.V(4).Infof("glusterfs: not able to parse your claim Selector")
 		return nil, fmt.Errorf("glusterfs: not able to parse your claim Selector")
@@ -494,7 +502,22 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	r.provisioningConfig = *cfg
 
 	glog.V(4).Infof("glusterfs: creating volume with configuration %+v", r.provisioningConfig)
-	glusterfs, sizeGB, err := r.CreateVolume()
+	poolrange := r.provisioningConfig.gidMin + "-" + r.provisioningConfig.gidMax
+	portAllocPtr, err := gidPoolCreate(poolrange)
+	if err != nil {
+		glog.V(1).Infof("glusterfs: gid pool creation error %v", err)
+		glog.Errorf("glusterfs: gid pool creation error %v", err)
+
+	}
+	glog.V(4).Infof("glusterfs: number of free GIDs: %#v", portAllocPtr.Free())
+	gid, err := portAllocPtr.AllocateNext()
+	if err != nil {
+		glog.V(1).Infof("glusterfs: gid allocation error %v", err)
+		glog.Errorf("glusterfs: gid allocation error %v", err)
+	}
+	glog.V(4).Infof("glusterfs: gid %v assigned:", gid)
+	reqGid = int64(gid)
+	glusterfs, sizeGB, err := r.CreateVolume(reqGid)
 	if err != nil {
 		glog.Errorf("glusterfs: create volume err: %v.", err)
 		return nil, fmt.Errorf("glusterfs: create volume err: %v.", err)
@@ -506,13 +529,15 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	if len(pv.Spec.AccessModes) == 0 {
 		pv.Spec.AccessModes = r.plugin.GetAccessModes()
 	}
+	sGid := strconv.FormatInt(reqGid, 10)
+	pv.Annotations = map[string]string{volumehelper.VolumeGidAnnotationKey: sGid}
 	pv.Spec.Capacity = v1.ResourceList{
 		v1.ResourceName(v1.ResourceStorage): resource.MustParse(fmt.Sprintf("%dGi", sizeGB)),
 	}
 	return pv, nil
 }
 
-func (p *glusterfsVolumeProvisioner) CreateVolume() (r *v1.GlusterfsVolumeSource, size int, err error) {
+func (p *glusterfsVolumeProvisioner) CreateVolume(reqGid int64) (r *v1.GlusterfsVolumeSource, size int, err error) {
 	capacity := p.options.PVC.Spec.Resources.Requests[v1.ResourceName(v1.ResourceStorage)]
 	volSizeBytes := capacity.Value()
 	sz := int(volume.RoundUpSize(volSizeBytes, 1024*1024*1024))
@@ -526,7 +551,7 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *v1.GlusterfsVolumeSource
 		glog.Errorf("glusterfs: failed to create glusterfs rest client")
 		return nil, 0, fmt.Errorf("failed to create glusterfs REST client, REST server authentication failed")
 	}
-	volumeReq := &gapi.VolumeCreateRequest{Size: sz, Durability: gapi.VolumeDurabilityInfo{Type: durabilityType, Replicate: gapi.ReplicaDurability{Replica: replicaCount}}}
+	volumeReq := &gapi.VolumeCreateRequest{Size: sz, Gid: reqGid, Durability: gapi.VolumeDurabilityInfo{Type: durabilityType, Replicate: gapi.ReplicaDurability{Replica: replicaCount}}}
 	volume, err := cli.VolumeCreate(volumeReq)
 	if err != nil {
 		glog.Errorf("glusterfs: error creating volume %v ", err)
@@ -682,6 +707,16 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 			cfg.secretNamespace = v
 		case "restauthenabled":
 			authEnabled = dstrings.ToLower(v) == "true"
+		case "gidmin":
+			cfg.gidMin = v
+			if err != nil {
+				fmt.Errorf("glusterfs: invalid value for option %q for volume plugin %s", k, glusterfsPluginName)
+			}
+		case "gidmax":
+			cfg.gidMax = v
+			if err != nil {
+				fmt.Errorf("glusterfs: invalid value for option %q for volume plugin %s", k, glusterfsPluginName)
+			}
 		default:
 			return nil, fmt.Errorf("glusterfs: invalid option %q for volume plugin %s", k, glusterfsPluginName)
 		}
@@ -712,5 +747,27 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 	} else {
 		cfg.secretValue = cfg.userKey
 	}
+
+	if cfg.gidMin == "" {
+		cfg.gidMin = defaultGidMin
+	}
+
+	if cfg.gidMax == "" {
+		cfg.gidMax = defaultGidMax
+	}
 	return &cfg, nil
+}
+
+func gidPoolCreate(poolrange string) (*portallocator.PortAllocator, error) {
+	pr, err := net.ParsePortRange(poolrange)
+	if err != nil {
+		glog.Errorf("glusterfs: failed to allocate gid pool [%v]", poolrange)
+		return nil, fmt.Errorf("glusterfs: failed to allocate gid pool [%v]", poolrange)
+	}
+	r := portallocator.NewPortAllocator(*pr)
+	if r.Free() == 0 {
+		glog.Errorf("glusterfs: failed to get free gids in gid pool [%v]", poolrange)
+		return nil, fmt.Errorf("glusterfs: failed to get free gids in gid pool [%v]", poolrange)
+	}
+	return r, nil
 }
