@@ -510,6 +510,67 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 
 func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	var err error
+	// First provision
+	if !r.plugin.initialized {
+		glog.V(1).Infof("First Entry  ")
+		pvList, err := r.plugin.host.GetKubeClient().Core().PersistentVolumes().List(v1.ListOptions{LabelSelector: labels.Everything().String()})
+		//TODO: below has to be err != nil || pvList == nil
+		if err != nil {
+			glog.Errorf("glusterfs: error to fetch persistent volumes")
+			// TODO: r.plugin.initialized = true , exit ?
+		}
+		scNameGids := make(map[string][]string)
+   		for _, pv := range pvList.Items {
+			if pv.Annotations["pv.kubernetes.io/provisioned-by"] == "kubernetes.io/glusterfs" {
+				scNameInAnnot := pv.Annotations["volume.beta.kubernetes.io/storage-class"]
+				scNameGids[scNameInAnnot] = append(scNameGids[scNameInAnnot], pv.Annotations[volumehelper.VolumeGidAnnotationKey] ) 
+			}	
+		}
+		glog.V(1).Infof("\n glusterfs: PVs with SC name and allocated GID Map :%v ", scNameGids)
+		for key, _ := range scNameGids {
+				scdetails, _ := r.plugin.host.GetKubeClient().Storage().StorageClasses().Get(key)
+				if scdetails.Parameters["gidMin"] == ""{
+					scdetails.Parameters["gidMin"] = defaultGidMin
+				}
+				if scdetails.Parameters["gidMax"] == ""{
+					scdetails.Parameters["gidMax"] = defaultGidMax  
+				}
+				blockStartnew32, err := r.ConvertGid(scdetails.Parameters["gidMin"])
+				if err != nil {
+					glog.Errorf("glusterfs: failed to convert gid %s", scdetails.Parameters["gidMin"])
+				}
+				blockEndnew32, err := r.ConvertGid(scdetails.Parameters["gidMax"])
+				if err != nil {
+					glog.Errorf("glusterfs: failed to convert gid %s", scdetails.Parameters["gidMax"])
+				}
+				if r.plugin.gidAllocators[key] == nil {
+					r.plugin.gidAllocators[key], err = gidPoolCreate(blockStartnew32, blockEndnew32)
+					if err != nil {
+						glog.Errorf("glusterfs: gid pool creation failed %v", err)
+						return nil, fmt.Errorf("glusterfs: gid pool creation failed: %v.", err)
+					}
+				}
+		}
+
+		for name,gids := range scNameGids {
+			for _,gid := range gids {
+				glog.V(1).Infof("glusterfs: gid %v", gid)
+				tempGid, err := r.ConvertGid(gid)
+				if err == nil {
+					if r.plugin.gidAllocators[name] != nil {
+						err = r.plugin.gidAllocators[name].Allocate(Block{Start: tempGid, End: tempGid})
+					}
+				} else {
+					glog.Errorf("Failed to convert  gid %s", gid)
+				}	
+			}
+		}
+		//TODO: r.plugin.initialized = true
+		//return nil, nil
+	}
+
+	glog.V(1).Infof("\n glusterfs: final bitmap after restoring: %v ", r.plugin.gidAllocators)
+
 	var blockStart32, blockEnd32 uint32
 
 	if r.options.PVC.Spec.Selector != nil {
@@ -525,66 +586,6 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	r.provisioningConfig = *cfg
 	glog.V(4).Infof("glusterfs: creating volume with configuration %+v", r.provisioningConfig)
 	scName := r.options.PVC.Annotations["volume.beta.kubernetes.io/storage-class"]
-	
-	// First provision
-	if !r.plugin.initialized {
-		//Resonstruct your db
-		glog.V(1).Infof("Ohhhhhhhhh .. First time you are coming here ?   ?/ ")
-		pvList, err := r.plugin.host.GetKubeClient().Core().PersistentVolumes().List(v1.ListOptions{LabelSelector: labels.Everything().String()})
-		if err != nil {
-			glog.Errorf("glusterfs: error to fetch persistent volumes")
-			//TODO
-		}
-		glog.V(1).Infof("glusterfs: list of existing PVs: %#v", pvList)
-	    scNameGids := make(map[string][]string)
-   		for _, pv := range pvList.Items {
-			if pv.Annotations["pv.kubernetes.io/provisioned-by"] == "kubernetes.io/glusterfs" {
-				//glog.V(1).Infof("\n Got a Gluster PV %#v",pv)
-				//gids = append(gids, pv.Annotations[volumehelper.VolumeGidAnnotationKey])
-				//glusterPVs = append(glusterPVs, pv)
-				scName := pv.Annotations["volume.beta.kubernetes.io/storage-class"]
-				glog.V(1).Infof("SCname : %s", scName)
-				scNameGids[scName] = append(scNameGids[scName], pv.Annotations[volumehelper.VolumeGidAnnotationKey] ) 
-				//scgids = append(scgids, pv.Annotations[volumehelper.VolumeGidAnnotationKey])
-				////gids[pv.Annotations["volume.beta.kubernetes.io/storage-class"]] = pv.Annotations[volumehelper.VolumeGidAnnotationKey]
-				//gids[pv.Annotations["volume.beta.kubernetes.io/storage-class"]] = scgids
-			}	
-		}	
-		glog.V(1).Infof("\n \n Gluster PVs with SC name GID Map :%v", scNameGids)
-		//Reconstruct the DB
-
-		for sClass, _ := range scNameGids {
-				glog.V(1).Infof("\n ## glusterfs:  Class %v ", sClass )
-				scdetails, _ := r.plugin.host.GetKubeClient().Storage().StorageClasses().Get(scName)
-				if scdetails.Parameters["gidMin"] == ""{
-					scdetails.Parameters["gidMin"] = defaultGidMin
-				}
-				if scdetails.Parameters["gidMax"] == ""{
-					scdetails.Parameters["gidMax"] = defaultGidMax  
-				}
-				glog.V(1).Infof("\n ******* Class Info %v ", scdetails.Parameters )
-
-				var blockStartnew32 uint32
-				if startGidnew32, err := strconv.ParseUint(scdetails.Parameters["gidMin"], 10, 32); err == nil {
-				blockStartnew32 = uint32(startGidnew32)
-				} 
-				var blockEndnew32 uint32
-				if endGidnew32, err := strconv.ParseUint(scdetails.Parameters["gidMax"], 10, 32); err == nil {
-				blockEndnew32 = uint32(endGidnew32)
-				} 
-				r.plugin.gidAllocators[scName], err = gidPoolCreate(blockStartnew32, blockEndnew32)
-				if err != nil {
-					glog.Errorf("glusterfs: gid pool creation failed %v", err)
-					return nil, fmt.Errorf("glusterfs: gid pool creation failed: %v.", err)
-				}
-				glog.V(1).Infof("glusterfs: bitmap : %v created  for %s ", r.plugin.gidAllocators[scName], scName)
-                
-		}
-
-		
-		glog.V(1).Infof("\n ### bitmap: %v ", r.plugin.gidAllocators)
-		//TODO: r.plugin.initialized = true
-	}
 
 	// TODO :Release GIDs
 	if startGid32, err := strconv.ParseUint(r.provisioningConfig.gidMin, 10, 32); err == nil {
@@ -618,6 +619,8 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 		glog.Errorf("glusterfs: gid allocation error %v", err)
 		return nil, fmt.Errorf("glusterfs: gid allocation error: %v.", err)
 	}
+	
+
 	reqGid := int64(gidblock.Start)
 	glog.V(2).Infof("glusterfs: assigned gid [%d] to PVC %s", reqGid, r.options.PVC.Name)
 	glusterfs, sizeGB, err := r.CreateVolume(reqGid)
@@ -639,6 +642,19 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	}
 	return pv, nil
 }
+
+func (p *glusterfsVolumeProvisioner) ConvertGid(inputGid string) ( outputGid uint32, err error) {
+	if inputGid32, err := strconv.ParseUint(inputGid, 10, 32); err == nil {
+		outputGid = uint32(inputGid32)
+	} else {
+		glog.Errorf("glusterfs: failed to parse gid %v " , inputGid)
+		//TODO: Do we need to return ?
+		return 0, fmt.Errorf("glusterfs: failed to parse gid %v " , inputGid)
+	}
+
+	return outputGid, nil
+
+}	
 
 func (p *glusterfsVolumeProvisioner) CreateVolume(reqGid int64) (r *v1.GlusterfsVolumeSource, size int, err error) {
 	capacity := p.options.PVC.Spec.Resources.Requests[v1.ResourceName(v1.ResourceStorage)]
