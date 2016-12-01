@@ -19,11 +19,14 @@ package glusterfs
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"path"
 	"runtime"
 	"strconv"
 	dstrings "strings"
+	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	gcli "github.com/heketi/heketi/client/api/go-client"
@@ -46,13 +49,13 @@ import (
 
 // This is the primary entrypoint for volume plugins.
 func ProbeVolumePlugins() []volume.VolumePlugin {
-	return []volume.VolumePlugin{&glusterfsPlugin{nil, exec.New(), make(map[string]*Allocator), false}}
+	return []volume.VolumePlugin{&glusterfsPlugin{nil, exec.New(), new(Allocator), false}}
 }
 
 type glusterfsPlugin struct {
 	host          volume.VolumeHost
 	exe           exec.Interface
-	gidAllocators map[string]*Allocator
+	gidAllocators *Allocator
 	initialized   bool
 }
 
@@ -62,6 +65,8 @@ var _ volume.DeletableVolumePlugin = &glusterfsPlugin{}
 var _ volume.ProvisionableVolumePlugin = &glusterfsPlugin{}
 var _ volume.Provisioner = &glusterfsVolumeProvisioner{}
 var _ volume.Deleter = &glusterfsVolumeDeleter{}
+
+var mutex sync.Mutex
 
 const (
 	glusterfsPluginName         = "kubernetes.io/glusterfs"
@@ -449,7 +454,7 @@ func (d *glusterfsVolumeDeleter) freeGID(gid, sc string) (oGid uint32, err error
 		return 0, fmt.Errorf("glusterfs: failed to parse gid %s", gid)
 	}
 
-	if d.plugin.gidAllocators[sc] == nil {
+	if d.plugin.gidAllocators == nil {
 		glog.Errorf("glusterfs: failed to get allocator for sc %s", sc)
 		return 0, fmt.Errorf("glusterfs: failed to get allocator for sc %s", sc)
 	}
@@ -483,7 +488,7 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 		return fmt.Errorf("glusterfs: failed to parse the gid")
 	}
 	releaseBlock := Block{Start: deleteGid32, End: deleteGid32}
-	gidAllocator := d.plugin.gidAllocators[scNameInSpec]
+	gidAllocator := d.plugin.gidAllocators
 	if err := gidAllocator.Release(releaseBlock); err != nil {
 		glog.Errorf("glusterfs:  error when releasing gid in storageclass: %s", scNameInSpec)
 	}
@@ -543,30 +548,12 @@ func (r *glusterfsVolumeProvisioner) ConstructAllocators() error {
 	}
 	glog.V(3).Infof("glusterfs: PVs with SC name and allocated GID Map :%v ", scNameGids)
 
-	for key := range scNameGids {
-		scdetails, _ := r.plugin.host.GetKubeClient().Storage().StorageClasses().Get(key)
-		if scdetails.Parameters["gidMin"] == "" {
-			scdetails.Parameters["gidMin"] = strconv.FormatUint(uint64(defaultGidMin), 10)
-		}
-		if scdetails.Parameters["gidMax"] == "" {
-			scdetails.Parameters["gidMax"] = strconv.FormatUint(uint64(defaultGidMax), 10)
-		}
-		blockStartnew32, err := convertGid(scdetails.Parameters["gidMin"])
-		if err != nil {
-			glog.Errorf("glusterfs: failed to convert gid %s", scdetails.Parameters["gidMin"])
-		}
-		blockEndnew32, err := convertGid(scdetails.Parameters["gidMax"])
-		if err != nil {
-			glog.Errorf("glusterfs: failed to convert gid %s", scdetails.Parameters["gidMax"])
-		}
-		// For each SC, create a pool and store it in plugin allocator map.
-		if r.plugin.gidAllocators[key] == nil {
-			r.plugin.gidAllocators[key], err = gidPoolCreate(blockStartnew32, blockEndnew32)
-			if err != nil {
-				glog.Errorf("glusterfs: gid pool creation failed %v", err)
-				return fmt.Errorf("glusterfs: gid pool creation failed: %v.", err)
-			}
-		}
+	//Create a single/global pool
+
+	r.plugin.gidAllocators, err = gidPoolCreate(defaultGidMin, defaultGidMax)
+	if err != nil {
+		glog.Errorf("glusterfs: gid pool creation failed %v", err)
+		return fmt.Errorf("glusterfs: gid pool creation failed: %v.", err)
 	}
 
 	// For each SCs in the allocator, set bitmap for existing/previosly allocated GIDs.
@@ -574,8 +561,8 @@ func (r *glusterfsVolumeProvisioner) ConstructAllocators() error {
 		for _, gid := range gids {
 			tempGid, err := convertGid(gid)
 			if err == nil {
-				if r.plugin.gidAllocators[name] != nil {
-					err = r.plugin.gidAllocators[name].Allocate(Block{Start: tempGid, End: tempGid})
+				if r.plugin.gidAllocators != nil {
+					err = r.plugin.gidAllocators.Allocate(Block{Start: tempGid, End: tempGid})
 					if err != nil {
 						glog.Errorf("glusterfs: Error [%v] when allocating GID %d for StorageClass: %s", err, tempGid, name)
 						return fmt.Errorf("glusterfs: Error [%v] when allocating GID %d for StorageClass: %s", err, tempGid, name)
@@ -591,16 +578,19 @@ func (r *glusterfsVolumeProvisioner) ConstructAllocators() error {
 
 func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	var err error
+
 	// Controller restart is handled here with initialized bool in plugin struct.
 	if !r.plugin.initialized {
-		err = r.ConstructAllocators()
-		if err != nil {
-			glog.Errorf("glusterfs: failed to construct allocators from existing PVs")
-
+		mutex.Lock()
+		if !r.plugin.initialized {
+			err = r.ConstructAllocators()
+			if err != nil {
+				glog.Errorf("glusterfs: failed to construct allocators from existing PVs")
+			}
 		}
 		r.plugin.initialized = true
+		mutex.Unlock()
 	}
-
 	glog.V(1).Infof("glusterfs: allocators after restoring: %#+v ", r.plugin.gidAllocators)
 
 	var blockStart32, blockEnd32 uint32
@@ -619,31 +609,30 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	blockStart32 = r.provisioningConfig.gidMin
 	blockEnd32 = r.provisioningConfig.gidMax
 	glog.V(2).Infof("glusterfs: provisioning config and gid range %d [%d - %d]", r.provisioningConfig, blockStart32, blockEnd32)
-	if scName != "" {
-		if r.plugin.gidAllocators[scName] != nil {
-			glog.V(1).Infof("glusterfs: bitmap : %v exist for %s ", r.plugin.gidAllocators[scName], scName)
-		} else {
-			r.plugin.gidAllocators[scName], err = gidPoolCreate(blockStart32, blockEnd32)
-			if err != nil {
-				glog.Errorf("glusterfs: gid pool creation failed %v", err)
-				return nil, fmt.Errorf("glusterfs: gid pool creation failed: %v.", err)
-			}
-			glog.V(1).Infof("glusterfs: bitmap : %v created  for %s ", r.plugin.gidAllocators[scName], scName)
+	glog.V(1).Infof("glusterfs: current gid allocator details %#+v", r.plugin.gidAllocators)
+	if r.plugin.gidAllocators == nil {
+		r.plugin.gidAllocators, err = gidPoolCreate(blockStart32, blockEnd32)
+		if err != nil {
+			glog.Errorf("glusterfs: gid pool creation failed %v", err)
+			return nil, fmt.Errorf("glusterfs: gid pool creation failed: %v.", err)
 		}
 	}
-	glog.V(1).Infof("glusterfs: current gid allocator details %#+v", r.plugin.gidAllocators[scName])
-	gidblock, err := r.plugin.gidAllocators[scName].AllocateNext()
+	//TODO: Need this randomizer to pick a uint32 value between gidMin and gidMax
+	gidRandomizer := rand.New(rand.NewSource(time.Now().UnixNano()))
+	tempreqGid := gidRandomizer.Uint32()
+	reqGid := int64(tempreqGid)
+	gidblock := Block{Start: tempreqGid, End: tempreqGid}
+	err = r.plugin.gidAllocators.Allocate(gidblock)
 	if err != nil {
 		glog.Errorf("glusterfs: gid allocation error %v", err)
 		return nil, fmt.Errorf("glusterfs: gid allocation error: %v.", err)
 	}
-	reqGid := int64(gidblock.Start)
 	glog.V(2).Infof("glusterfs: assigned gid [%d] to PVC %s", reqGid, r.options.PVC.Name)
 	glusterfs, sizeGB, err := r.CreateVolume(reqGid)
 	if err != nil {
 		glog.Errorf("glusterfs: create volume err: %v.", err)
 
-		if err := r.plugin.gidAllocators[scName].Release(gidblock); err != nil {
+		if err := r.plugin.gidAllocators.Release(gidblock); err != nil {
 			glog.Errorf("glusterfs:  error when releasing gid in storageclass: %s", scName)
 		}
 		return nil, fmt.Errorf("glusterfs: create volume err: %v.", err)
