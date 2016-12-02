@@ -60,12 +60,12 @@ func NewMinMaxAllocator(min, max int) (Rangeable, error) {
 		max:  max,
 		free: 1 + max - min,
 		used: map[int]bool{},
-	}
+	}, nil
 }
 
 func (a *MinMaxAllocator) SetRange(min, max int) error {
 	if min > max {
-		return nil, errors.New("min must be greater than or equal to max")
+		return errors.New("min must be greater than or equal to max")
 	}
 
 	a.lock.Lock()
@@ -87,6 +87,7 @@ func (a *MinMaxAllocator) SetRange(min, max int) error {
 		}
 	}
 	a.free = 1 + max - min - used
+	return nil
 }
 
 func (a *MinMaxAllocator) Allocate(i int) (bool, error) {
