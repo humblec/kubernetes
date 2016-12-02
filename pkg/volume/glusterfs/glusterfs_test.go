@@ -269,6 +269,8 @@ func TestParseClassParameters(t *testing.T) {
 				user:        "admin",
 				userKey:     "password",
 				secretValue: "password",
+				gidMin:      2000,
+				gidMax:      4294967295,
 			},
 		},
 		{
@@ -287,6 +289,8 @@ func TestParseClassParameters(t *testing.T) {
 				secretName:      "mysecret",
 				secretNamespace: "default",
 				secretValue:     "mypassword",
+				gidMin:          2000,
+				gidMax:          4294967295,
 			},
 		},
 		{
@@ -299,6 +303,8 @@ func TestParseClassParameters(t *testing.T) {
 			false, // expect error
 			&provisioningConfig{
 				url: "https://localhost:8080",
+				gidMin: 2000,
+				gidMax: 4294967295,
 			},
 		},
 		{

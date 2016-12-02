@@ -16,6 +16,7 @@ go_library(
         "doc.go",
         "glusterfs.go",
         "glusterfs_util.go",
+        "minmax.go",
     ],
     tags = ["automanaged"],
     deps = [
