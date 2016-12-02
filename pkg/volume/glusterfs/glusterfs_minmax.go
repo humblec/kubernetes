@@ -29,11 +29,11 @@ import (
 	"k8s.io/kubernetes/pkg/registry/core/service/allocator"
 )
 
-var ErrNotFound     = errors.New("number not allocated")
-var ErrConflict     = errors.New("number already allocated")
+var ErrNotFound = errors.New("number not allocated")
+var ErrConflict = errors.New("number already allocated")
 var ErrInvalidRange = errors.New("invalid range")
-var ErrOutOfRange   = errors.New("out of range")
-var ErrRangeFull    = errors.New("range full")
+var ErrOutOfRange = errors.New("out of range")
+var ErrRangeFull = errors.New("range full")
 
 type MinMaxAllocator struct {
 	lock sync.Mutex
@@ -82,7 +82,7 @@ func (a *MinMaxAllocator) SetRange(min, max int) error {
 
 	// Recompute how many free we have in the range
 	num_used := 0
-	for i, _ := range a.used {
+	for i := range a.used {
 		if a.inRange(i) {
 			num_used++
 		}

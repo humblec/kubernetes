@@ -302,7 +302,7 @@ func TestParseClassParameters(t *testing.T) {
 			&secret,
 			false, // expect error
 			&provisioningConfig{
-				url: "https://localhost:8080",
+				url:    "https://localhost:8080",
 				gidMin: 2000,
 				gidMax: 4294967295,
 			},

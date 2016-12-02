@@ -23,8 +23,8 @@ import (
 	"path"
 	"runtime"
 	"strconv"
-	"sync"
 	dstrings "strings"
+	"sync"
 
 	"github.com/golang/glog"
 	gcli "github.com/heketi/heketi/client/api/go-client"
@@ -32,7 +32,9 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
+	storageutil "k8s.io/kubernetes/pkg/apis/storage/v1beta1/util"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/types"
 	"k8s.io/kubernetes/pkg/util/exec"
 	"k8s.io/kubernetes/pkg/util/mount"
@@ -40,8 +42,6 @@ import (
 	"k8s.io/kubernetes/pkg/volume"
 	volutil "k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/kubernetes/pkg/volume/util/volumehelper"
-	"k8s.io/kubernetes/pkg/labels"
-	storageutil "k8s.io/kubernetes/pkg/apis/storage/v1beta1/util"
 )
 
 // This is the primary entrypoint for volume plugins.
@@ -403,7 +403,7 @@ type glusterfsVolumeProvisioner struct {
 }
 
 func convertGid(inputGid string) (uint32, error) {
-	inputGid32, err := strconv.ParseUint(inputGid, 10, 32);
+	inputGid32, err := strconv.ParseUint(inputGid, 10, 32)
 	if err != nil {
 		glog.Errorf("glusterfs: failed to parse gid %v ", inputGid)
 		return 0, fmt.Errorf("glusterfs: failed to parse gid %v ", inputGid)
@@ -584,7 +584,7 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 
 	if err == nil {
 		gidTable, err := d.plugin.getGidTable(class.Name, cfg.gidMin, cfg.gidMax)
-		if err !=nil {
+		if err != nil {
 			return fmt.Errorf("glusterfs: failed to get gidTable: %s", err)
 		}
 
@@ -648,8 +648,8 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 	glog.V(4).Infof("glusterfs: creating volume with configuration %+v", r.provisioningConfig)
 
 	gidTable, err := r.plugin.getGidTable(scName, cfg.gidMin, cfg.gidMax)
-	if err !=nil {
-		return nil,fmt.Errorf("glusterfs: failed to get gidTable: %s", err)
+	if err != nil {
+		return nil, fmt.Errorf("glusterfs: failed to get gidTable: %s", err)
 	}
 
 	gid, _, err := gidTable.AllocateNext()
