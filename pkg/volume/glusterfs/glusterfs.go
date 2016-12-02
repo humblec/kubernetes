@@ -485,7 +485,7 @@ func (p *glusterfsPlugin) collectGids(className string) error {
 //   used in PVs of this storage class by traversing the PVs.
 // - Adapt the range of the table to the current range of the SC.
 //
-func (p *glusterfsPlugin) getGidTable(className string, min uint32, max uint32) (*MinMaxAllocator, error) {
+func (p *glusterfsPlugin) getGIDTable(className string, min uint32, max uint32) (*MinMaxAllocator, error) {
 
 	//cfg, err := parseClassParameters(class.Parameters, p.host.GetKubeClient())
 	//if err != nil {
@@ -549,7 +549,7 @@ func (d *glusterfsVolumeDeleter) Delete() error {
 		return fmt.Errorf("glusterfs: failed to parse the gid")
 	}
 
-	gidTable, err := d.plugin.getGidTable(class.Name, cfg.gidMin, cfg.gidMax)
+	gidTable, err := d.plugin.getGIDTable(class.Name, cfg.gidMin, cfg.gidMax)
 	if err !=nil {
 		return fmt.Errorf("glusterfs: failed to get gidTable: %s", err)
 	}
@@ -618,7 +618,7 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 
 	glog.V(4).Infof("glusterfs: creating volume with configuration %+v", r.provisioningConfig)
 
-	gidTable, err := r.plugin.getGidTable(scName, cfg.gidMin, cfg.gidMax)
+	gidTable, err := r.plugin.getGIDTable(scName, cfg.gidMin, cfg.gidMax)
 	if err !=nil {
 		return nil,fmt.Errorf("glusterfs: failed to get gidTable: %s", err)
 	}
@@ -882,7 +882,7 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 		cfg.gidMax = defaultGidMax
 	}
 
-	if cfg.gidMin >= cfg.gidMax {
+	if cfg.gidMin > cfg.gidMax {
 		return nil, fmt.Errorf("StorageClass for provisioner %q must have gidMax value >= gidMin", glusterfsPluginName)
 	}
 

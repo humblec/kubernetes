@@ -93,14 +93,14 @@ func (a *MinMaxAllocator) SetRange(min, max int) error {
 func (a *MinMaxAllocator) Allocate(i int) (bool, error) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if i < min || i > max {
+	if i < a.min || i > a.max {
 		return false, errors.New("out of range")
 	}
 	if _, ok := a.used[i]; ok {
 		return false, errors.New("already allocated")
 	}
 	a.used[i] = true
-	free--
+	a.free--
 	return true, nil
 }
 
@@ -117,7 +117,7 @@ func (a *MinMaxAllocator) AllocateNext() (int, bool, error) {
 	for i := min; i <= max; i++ {
 		if _, ok := a.used[i]; !ok {
 			a.used[i] = true
-			free--
+			a.free--
 			return i, true, nil
 		}
 	}
@@ -137,8 +137,8 @@ func (a *MinMaxAllocator) Release(i int) error {
 	delete(a.used, i)
 
 	// If within our range, re-add to our free count
-	if min <= i && i <= max {
-		free++
+	if a.min <= i && i <= a.max {
+		a.free++
 	}
 
 	return nil
