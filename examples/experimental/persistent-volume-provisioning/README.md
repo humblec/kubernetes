@@ -94,7 +94,7 @@ When both `restuserkey` and `secretNamespace` + `secretName` is specified, the s
 
 Example of a secret can be found in [glusterfs-provisioning-secret.yaml](glusterfs-provisioning-secret.yaml).
 
-* `gidMin` + `gidMax` : The minimum and maximum value of GID range for the storage class. A unique value (GID) in this range ( gidMin-gidMax ) will be used for dynamically provisioned volumes. These are optional values. If not specified, the volume will be provisioned with a value between 2000-2147483647 which are defaults for gidMin and gidMax respectively.
+* `gidMin` + `gidMax` : The minimum and maximum value of GID range for the storage class. These are optional values. If not specified, the volume will be provisioned with a value between 2000-2147483647 which are defaults for gidMin and gidMax respectively. If specified, a unique value (GID) in this range ( gidMin-gidMax ) will be used for dynamically provisioned volumes. The GID of the provisioned volume will be set to this value. It is required to run Heketi version >= 3 to make use of this feature. This GID will be released from the pool when the subjected volume is deleted.
 
 Reference : ([How to configure Heketi](https://github.com/heketi/heketi/wiki/Setting-up-the-topology))
 
