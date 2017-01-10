@@ -103,6 +103,7 @@ func (plugin *iscsiPlugin) newMounterInternal(spec *volume.Spec, podUID types.UI
 	}
 
 	lun := strconv.Itoa(int(iscsi.Lun))
+
 	portal := portalMounter(iscsi.TargetPortal)
 
 	iface := iscsi.ISCSIInterface
@@ -151,8 +152,8 @@ func (plugin *iscsiPlugin) ConstructVolumeSpec(volumeName, mountPath string) (*v
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
 			ISCSI: &v1.ISCSIVolumeSource{
-				TargetPortal: volumeName,
-				IQN:          volumeName,
+				//TargetPortal: volumeName,
+				IQN: volumeName,
 			},
 		},
 	}
@@ -162,7 +163,7 @@ func (plugin *iscsiPlugin) ConstructVolumeSpec(volumeName, mountPath string) (*v
 type iscsiDisk struct {
 	volName string
 	podUID  types.UID
-	portal  string
+	portal  []string
 	iqn     string
 	lun     string
 	iface   string
@@ -233,9 +234,11 @@ func (c *iscsiDiskUnmounter) TearDownAt(dir string) error {
 	return diskTearDown(c.manager, *c, dir, c.mounter)
 }
 
-func portalMounter(portal string) string {
-	if !strings.Contains(portal, ":") {
-		portal = portal + ":3260"
+func portalMounter(portal []string) []string {
+	for _, eportal := range portal {
+		if !strings.Contains(eportal, ":") {
+			eportal = eportal + ":3260"
+		}
 	}
 	return portal
 }

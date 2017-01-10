@@ -964,7 +964,7 @@ type NFSVolumeSource struct {
 type ISCSIVolumeSource struct {
 	// iSCSI target portal. The portal is either an IP or ip_addr:port if the port
 	// is other than default (typically TCP ports 860 and 3260).
-	TargetPortal string `json:"targetPortal" protobuf:"bytes,1,opt,name=targetPortal"`
+	TargetPortal []string `json:"targetPortal" protobuf:"bytes,1,opt,name=targetPortal"`
 	// Target iSCSI Qualified Name.
 	IQN string `json:"iqn" protobuf:"bytes,2,opt,name=iqn"`
 	// iSCSI target lun number.
