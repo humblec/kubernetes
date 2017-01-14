@@ -91,8 +91,8 @@ func getDevicePrefixRefCount(mounter mount.Interface, deviceNamePrefix string) (
 }
 
 // make a directory like /var/lib/kubelet/plugins/kubernetes.io/iscsi/portal-some_iqn-lun-lun_id
-func makePDNameInternal(host volume.VolumeHost, portal string, iqn string, lun string) string {
-	return path.Join(host.GetPluginDir(iscsiPluginName), portal+"-"+iqn+"-lun-"+lun)
+func makePDNameInternal(host volume.VolumeHost, portal []string, iqn string, lun string) string {
+	return path.Join(host.GetPluginDir(iscsiPluginName), portal[0]+"-"+iqn+"-lun-"+lun)
 }
 
 type ISCSIUtil struct{}
@@ -117,23 +117,25 @@ func (util *ISCSIUtil) AttachDisk(b iscsiDiskMounter) error {
 		glog.Errorf("iscsi: could not find transport name in iface %s", b.iface)
 		return errors.New(fmt.Sprintf("Could not parse iface file for %s", b.iface))
 	} else if iscsiTransport == "tcp" {
-		devicePath = strings.Join([]string{"/dev/disk/by-path/ip", b.portal, "iscsi", b.iqn, "lun", b.lun}, "-")
+		devicePath = strings.Join([]string{"/dev/disk/by-path/ip", b.portal[0], "iscsi", b.iqn, "lun", b.lun}, "-")
 	} else {
-		devicePath = strings.Join([]string{"/dev/disk/by-path/pci", "*", "ip", b.portal, "iscsi", b.iqn, "lun", b.lun}, "-")
+		devicePath = strings.Join([]string{"/dev/disk/by-path/pci", "*", "ip", b.portal[0], "iscsi", b.iqn, "lun", b.lun}, "-")
 	}
 	exist := waitForPathToExist(devicePath, 1, iscsiTransport)
 	if exist == false {
 		// discover iscsi target
-		out, err := b.plugin.execCommand("iscsiadm", []string{"-m", "discovery", "-t", "sendtargets", "-p", b.portal, "-I", b.iface})
-		if err != nil {
-			glog.Errorf("iscsi: failed to sendtargets to portal %s error: %s", b.portal, string(out))
-			return err
-		}
-		// login to iscsi target
-		out, err = b.plugin.execCommand("iscsiadm", []string{"-m", "node", "-p", b.portal, "-T", b.iqn, "-I", b.iface, "--login"})
-		if err != nil {
-			glog.Errorf("iscsi: failed to attach disk:Error: %s (%v)", string(out), err)
-			return err
+		for _, tp := range b.portal {
+			out, err := b.plugin.execCommand("iscsiadm", []string{"-m", "discovery", "-t", "sendtargets", "-p", tp, "-I", b.iface})
+			if err != nil {
+				glog.Errorf("iscsi: failed to sendtargets to portal %s error: %s", tp, string(out))
+				return err
+			}
+			// login to iscsi target
+			out, err = b.plugin.execCommand("iscsiadm", []string{"-m", "node", "-p", tp, "-T", b.iqn, "-I", b.iface, "--login"})
+			if err != nil {
+				glog.Errorf("iscsi: failed to attach disk:Error: %s (%v)", string(out), err)
+				return err
+			}
 		}
 		exist = waitForPathToExist(devicePath, 10, iscsiTransport)
 		if !exist {

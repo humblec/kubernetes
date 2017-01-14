@@ -130,22 +130,27 @@ func isVolumeConflict(volume v1.Volume, pod *v1.Pod) bool {
 		}
 
 		if volume.ISCSI != nil && existingVolume.ISCSI != nil {
-			iqn, lun, target := volume.ISCSI.IQN, volume.ISCSI.Lun, volume.ISCSI.TargetPortal
-			eiqn, elun, etarget := existingVolume.ISCSI.IQN, existingVolume.ISCSI.Lun, existingVolume.ISCSI.TargetPortal
-			if !strings.Contains(target, ":") {
-				target = target + ":3260"
-			}
-			if !strings.Contains(etarget, ":") {
-				etarget = etarget + ":3260"
-			}
-			lun1 := strconv.Itoa(int(lun))
-			elun1 := strconv.Itoa(int(elun))
 
-			// two ISCSI volumes are same, if they share the same iqn, lun and target. As iscsi volumes are of type
-			// RWO or ROX, we could permit only one RW mount. Same iscsi volume mounted by multiple Pods
-			// conflict unless all other pods mount as read only.
-			if iqn == eiqn && lun1 == elun1 && target == etarget && !(volume.ISCSI.ReadOnly && existingVolume.ISCSI.ReadOnly) {
-				return true
+			for j, _ := range volume.ISCSI.TargetPortal {
+				iqn, lun, target := volume.ISCSI.IQN, volume.ISCSI.Lun, volume.ISCSI.TargetPortal[j]
+				for i, _ := range existingVolume.ISCSI.TargetPortal {
+					eiqn, elun, etarget := existingVolume.ISCSI.IQN, existingVolume.ISCSI.Lun, existingVolume.ISCSI.TargetPortal[i]
+					if !strings.Contains(target, ":") {
+						target = target + ":3260"
+					}
+					if !strings.Contains(etarget, ":") {
+						etarget = etarget + ":3260"
+					}
+					lun1 := strconv.Itoa(int(lun))
+					elun1 := strconv.Itoa(int(elun))
+
+					// two ISCSI volumes are same, if they share the same iqn, lun and target. As iscsi volumes are of type
+					// RWO or ROX, we could permit only one RW mount. Same iscsi volume mounted by multiple Pods
+					// conflict unless all other pods mount as read only.
+					if iqn == eiqn && lun1 == elun1 && target == etarget && !(volume.ISCSI.ReadOnly && existingVolume.ISCSI.ReadOnly) {
+						return true
+					}
+				}
 			}
 		}
 
