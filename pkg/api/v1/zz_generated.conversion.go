@@ -1613,7 +1613,7 @@ func Convert_api_HostPathVolumeSource_To_v1_HostPathVolumeSource(in *api.HostPat
 }
 
 func autoConvert_v1_ISCSIVolumeSource_To_api_ISCSIVolumeSource(in *ISCSIVolumeSource, out *api.ISCSIVolumeSource, s conversion.Scope) error {
-	out.TargetPortal = in.TargetPortal
+	out.TargetPortal = *(*[]string)(unsafe.Pointer(&in.TargetPortal))
 	out.IQN = in.IQN
 	out.Lun = in.Lun
 	out.ISCSIInterface = in.ISCSIInterface
@@ -1627,7 +1627,7 @@ func Convert_v1_ISCSIVolumeSource_To_api_ISCSIVolumeSource(in *ISCSIVolumeSource
 }
 
 func autoConvert_api_ISCSIVolumeSource_To_v1_ISCSIVolumeSource(in *api.ISCSIVolumeSource, out *ISCSIVolumeSource, s conversion.Scope) error {
-	out.TargetPortal = in.TargetPortal
+	out.TargetPortal = *(*[]string)(unsafe.Pointer(&in.TargetPortal))
 	out.IQN = in.IQN
 	out.Lun = in.Lun
 	out.ISCSIInterface = in.ISCSIInterface

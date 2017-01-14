@@ -14728,21 +14728,29 @@ func (x *ISCSIVolumeSource) CodecEncodeSelf(e *codec1978.Encoder) {
 			}
 			if yyr2 || yy2arr2 {
 				z.EncSendContainerState(codecSelfer_containerArrayElem1234)
-				yym4 := z.EncBinary()
-				_ = yym4
-				if false {
+				if x.TargetPortal == nil {
+					r.EncodeNil()
 				} else {
-					r.EncodeString(codecSelferC_UTF81234, string(x.TargetPortal))
+					yym4 := z.EncBinary()
+					_ = yym4
+					if false {
+					} else {
+						z.F.EncSliceStringV(x.TargetPortal, false, e)
+					}
 				}
 			} else {
 				z.EncSendContainerState(codecSelfer_containerMapKey1234)
 				r.EncodeString(codecSelferC_UTF81234, string("targetPortal"))
 				z.EncSendContainerState(codecSelfer_containerMapValue1234)
-				yym5 := z.EncBinary()
-				_ = yym5
-				if false {
+				if x.TargetPortal == nil {
+					r.EncodeNil()
 				} else {
-					r.EncodeString(codecSelferC_UTF81234, string(x.TargetPortal))
+					yym5 := z.EncBinary()
+					_ = yym5
+					if false {
+					} else {
+						z.F.EncSliceStringV(x.TargetPortal, false, e)
+					}
 				}
 			}
 			if yyr2 || yy2arr2 {
@@ -14921,14 +14929,14 @@ func (x *ISCSIVolumeSource) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) 
 		switch yys3 {
 		case "targetPortal":
 			if r.TryDecodeAsNil() {
-				x.TargetPortal = ""
+				x.TargetPortal = nil
 			} else {
 				yyv4 := &x.TargetPortal
 				yym5 := z.DecBinary()
 				_ = yym5
 				if false {
 				} else {
-					*((*string)(yyv4)) = r.DecodeString()
+					z.F.DecSliceStringX(yyv4, false, d)
 				}
 			}
 		case "iqn":
@@ -15017,14 +15025,14 @@ func (x *ISCSIVolumeSource) codecDecodeSelfFromArray(l int, d *codec1978.Decoder
 	}
 	z.DecSendContainerState(codecSelfer_containerArrayElem1234)
 	if r.TryDecodeAsNil() {
-		x.TargetPortal = ""
+		x.TargetPortal = nil
 	} else {
 		yyv17 := &x.TargetPortal
 		yym18 := z.DecBinary()
 		_ = yym18
 		if false {
 		} else {
-			*((*string)(yyv17)) = r.DecodeString()
+			z.F.DecSliceStringX(yyv17, false, d)
 		}
 	}
 	yyj16++

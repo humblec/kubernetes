@@ -1124,7 +1124,7 @@ message HostPathVolumeSource {
 message ISCSIVolumeSource {
   // iSCSI target portal. The portal is either an IP or ip_addr:port if the port
   // is other than default (typically TCP ports 860 and 3260).
-  optional string targetPortal = 1;
+  repeated string targetPortal = 1;
 
   // Target iSCSI Qualified Name.
   optional string iqn = 2;
