@@ -1643,7 +1643,8 @@
     "required": [
      "targetPortal",
      "iqn",
-     "lun"
+     "lun",
+     "backupPortal"
     ],
     "properties": {
      "targetPortal": {
@@ -1670,6 +1671,12 @@
      "readOnly": {
       "type": "boolean",
       "description": "ReadOnly here will force the ReadOnly setting in VolumeMounts. Defaults to false."
+     },
+     "backupPortal": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      }
     }
    },
