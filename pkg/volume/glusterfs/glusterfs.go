@@ -96,7 +96,6 @@ func (plugin *glusterfsPlugin) GetVolumeName(spec *volume.Spec) (string, error) 
 	if err != nil {
 		return "", err
 	}
-
 	return fmt.Sprintf(
 		"%v:%v",
 		volumeSource.EndpointsName,
@@ -108,7 +107,6 @@ func (plugin *glusterfsPlugin) CanSupport(spec *volume.Spec) bool {
 		(spec.Volume != nil && spec.Volume.Glusterfs == nil) {
 		return false
 	}
-
 	return true
 }
 
@@ -253,7 +251,6 @@ func (b *glusterfsMounter) SetUpAt(dir string, fsGroup *int64) error {
 	if !notMnt {
 		return nil
 	}
-
 	os.MkdirAll(dir, 0750)
 	err = b.setUpAtInternal(dir)
 	if err == nil {
@@ -286,12 +283,10 @@ func (c *glusterfsUnmounter) TearDownAt(dir string) error {
 
 func (b *glusterfsMounter) setUpAtInternal(dir string) error {
 	var errs error
-
 	options := []string{}
 	if b.readOnly {
 		options = append(options, "ro")
 	}
-
 	p := path.Join(b.glusterfs.plugin.host.GetPluginDir(glusterfsPluginName), b.glusterfs.volName)
 	if err := os.MkdirAll(p, 0750); err != nil {
 		return fmt.Errorf("glusterfs: mkdir failed: %v", err)
@@ -303,7 +298,6 @@ func (b *glusterfsMounter) setUpAtInternal(dir string) error {
 	log := path.Join(p, b.pod.Name+"-glusterfs.log")
 	options = append(options, "log-level=ERROR")
 	options = append(options, "log-file="+log)
-
 	var addrlist []string
 	if b.hosts == nil {
 		return fmt.Errorf("glusterfs: endpoint is nil")
@@ -349,7 +343,6 @@ func getVolumeSource(
 		spec.PersistentVolume.Spec.Glusterfs != nil {
 		return spec.PersistentVolume.Spec.Glusterfs, spec.ReadOnly, nil
 	}
-
 	return nil, false, fmt.Errorf("Spec does not reference a GlusterFS volume type")
 }
 
@@ -392,7 +385,6 @@ func convertGid(gidString string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("glusterfs: failed to parse gid %v ", gidString)
 	}
-
 	if gid64 < 0 {
 		return 0, fmt.Errorf("glusterfs: negative GIDs are not allowed: %v", gidString)
 	}
@@ -404,7 +396,6 @@ func convertGid(gidString string) (int, error) {
 }
 
 func convertVolumeParam(volumeString string) (int, error) {
-
 	count, err := strconv.Atoi(volumeString)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse %q", volumeString)
@@ -832,6 +823,7 @@ func parseSecret(namespace, secretName string, kubeClient clientset.Interface) (
 		}
 		secret = v
 	}
+
 	// If not found, the last secret in the map wins as done before
 	return secret, nil
 }
@@ -892,11 +884,9 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 			return nil, fmt.Errorf("glusterfs: invalid option %q for volume plugin %s", k, glusterfsPluginName)
 		}
 	}
-
 	if len(cfg.url) == 0 {
 		return nil, fmt.Errorf("StorageClass for provisioner %s must contain 'resturl' parameter", glusterfsPluginName)
 	}
-
 	if len(parseVolumeType) == 0 {
 		cfg.volumeType = gapi.VolumeDurabilityInfo{Type: gapi.DurabilityReplicate, Replicate: gapi.ReplicaDurability{Replica: replicaCount}}
 	} else {
@@ -952,10 +942,8 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 	} else {
 		cfg.secretValue = cfg.userKey
 	}
-
 	if cfg.gidMin > cfg.gidMax {
 		return nil, fmt.Errorf("StorageClass for provisioner %q must have gidMax value >= gidMin", glusterfsPluginName)
 	}
-
 	return &cfg, nil
 }
