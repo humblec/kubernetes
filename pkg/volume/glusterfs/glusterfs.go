@@ -141,12 +141,51 @@ func (plugin *glusterfsPlugin) NewMounter(spec *volume.Spec, pod *v1.Pod, _ volu
 	if kubeClient == nil {
 		return nil, fmt.Errorf("glusterfs: failed to get kube client to initialize mounter")
 	}
+
 	ep, err := kubeClient.Core().Endpoints(ns).Get(epName, metav1.GetOptions{})
-	if err != nil {
-		glog.Errorf("glusterfs: failed to get endpoints %s[%v]", epName, err)
-		return nil, err
+	if err != nil && errors.IsNotFound(err) {
+		glog.Errorf("glusterfs: failed to get endpoint %s[%v]", epName, err)
+		if spec != nil && spec.PersistentVolume.Annotations["kubernetes.io/createdby"] == "heketi-dynamic-provisioner" {
+			class, err := volutil.GetClassForVolume(plugin.host.GetKubeClient(), spec.PersistentVolume)
+			if err != nil {
+				return nil, fmt.Errorf("glusterfs: failed to get storageclass when recreating endpoint/service: %v", err)
+			}
+
+			cfg, err := parseClassParameters(class.Parameters, plugin.host.GetKubeClient())
+			if err != nil {
+				return nil, fmt.Errorf("glusterfs: failed to parse storageclass parameter %v when recreating endpoint/service", err)
+			}
+
+			scConfig := *cfg
+			cli := gcli.NewClient(scConfig.url, scConfig.user, scConfig.secretValue)
+			if cli == nil {
+				return nil, fmt.Errorf("glusterfs: failed to create glusterfs rest client when recreating endpoint/service ")
+			}
+
+			volumeID := dstrings.TrimPrefix(source.Path, volPrefix)
+			volInfo, err := cli.VolumeInfo(volumeID)
+			if err != nil {
+				return nil, fmt.Errorf("glusterfs: failed to fetch volumeID: %v when recreating endpoint/service", err)
+			}
+
+			endpointIPs, err := getClusterNodes(cli, volInfo.Cluster)
+			if err != nil {
+				return nil, fmt.Errorf("glusterfs: failed to get clusterIPs: %v when recreating endpoint/service", err)
+			}
+
+			// Give an attempt to recreate endpoint/service.
+			claim := spec.PersistentVolume.Spec.ClaimRef.Name
+			_, _, err = plugin.createEndpointService(ns, epName, endpointIPs, claim)
+			if err != nil {
+				glog.Errorf("glusterfs: failed to recreate endpoint/service: %v", err)
+				return nil, fmt.Errorf("failed to recreate endpoint/service %v", err)
+			}
+			glog.V(1).Infof("glusterfs: endpoint/service [%v] successfully recreated ", epName)
+		} else {
+			return nil, err
+		}
 	}
-	glog.V(1).Infof("glusterfs: endpoints %v", ep)
+
 	return plugin.newMounterInternal(spec, ep, pod, plugin.host.GetMounter(), exec.New())
 }
 
@@ -568,7 +607,7 @@ func (p *glusterfsPlugin) getGidTable(className string, min int, max int) (*MinM
 }
 
 //createEndpointService create an endpoint and service in provided namespace.
-func (p *glusterfsPlugin) createEndpointService(namespace string, epServiceName string, hostips []string, pvcname string) (endpoint *v1.Endpoints, service *v1.Service, err error) {
+func (plugin *glusterfsPlugin) createEndpointService(namespace string, epServiceName string, hostips []string, pvcname string) (endpoint *v1.Endpoints, service *v1.Service, err error) {
 
 	addrlist := make([]v1.EndpointAddress, len(hostips))
 	for i, v := range hostips {
@@ -587,7 +626,7 @@ func (p *glusterfsPlugin) createEndpointService(namespace string, epServiceName 
 			Ports:     []v1.EndpointPort{{Port: 1, Protocol: "TCP"}},
 		}},
 	}
-	kubeClient := p.host.GetKubeClient()
+	kubeClient := plugin.host.GetKubeClient()
 	if kubeClient == nil {
 		return nil, nil, fmt.Errorf("glusterfs: failed to get kube client when creating endpoint service")
 	}
@@ -624,8 +663,8 @@ func (p *glusterfsPlugin) createEndpointService(namespace string, epServiceName 
 }
 
 // deleteEndpointService delete the endpoint and service from the provided namespace.
-func (p *glusterfsPlugin) deleteEndpointService(namespace string, epServiceName string) (err error) {
-	kubeClient := p.host.GetKubeClient()
+func (plugin *glusterfsPlugin) deleteEndpointService(namespace string, epServiceName string) (err error) {
+	kubeClient := plugin.host.GetKubeClient()
 	if kubeClient == nil {
 		return fmt.Errorf("glusterfs: failed to get kube client when deleting endpoint service")
 	}
@@ -756,7 +795,7 @@ func (r *glusterfsVolumeProvisioner) Provision() (*v1.PersistentVolume, error) {
 		}
 
 		glog.Errorf("glusterfs: create volume err: %v.", err)
-		return nil, fmt.Errorf("glusterfs: create volume err: %v.", err)
+		return nil, fmt.Errorf("glusterfs: create volume err: %v", err)
 	}
 	pv := new(v1.PersistentVolume)
 	pv.Spec.PersistentVolumeSource.Glusterfs = glusterfs
@@ -932,7 +971,7 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 			if len(parseVolumeTypeInfo) >= 2 {
 				newReplicaCount, err := convertVolumeParam(parseVolumeTypeInfo[1])
 				if err != nil {
-					return nil, fmt.Errorf("error [%v] when parsing value %q of option '%s' for volume plugin %s.", err, parseVolumeTypeInfo[1], "volumetype", glusterfsPluginName)
+					return nil, fmt.Errorf("error [%v] when parsing value %q of option '%s' for volume plugin %s", err, parseVolumeTypeInfo[1], "volumetype", glusterfsPluginName)
 				}
 				cfg.volumeType = gapi.VolumeDurabilityInfo{Type: gapi.DurabilityReplicate, Replicate: gapi.ReplicaDurability{Replica: newReplicaCount}}
 			} else {
@@ -942,11 +981,11 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 			if len(parseVolumeTypeInfo) >= 3 {
 				newDisperseData, err := convertVolumeParam(parseVolumeTypeInfo[1])
 				if err != nil {
-					return nil, fmt.Errorf("error [%v] when parsing value %q of option '%s' for volume plugin %s.", parseVolumeTypeInfo[1], err, "volumetype", glusterfsPluginName)
+					return nil, fmt.Errorf("error [%v] when parsing value %q of option '%s' for volume plugin %s", parseVolumeTypeInfo[1], err, "volumetype", glusterfsPluginName)
 				}
 				newDisperseRedundancy, err := convertVolumeParam(parseVolumeTypeInfo[2])
 				if err != nil {
-					return nil, fmt.Errorf("error [%v] when parsing value %q of option '%s' for volume plugin %s.", err, parseVolumeTypeInfo[2], "volumetype", glusterfsPluginName)
+					return nil, fmt.Errorf("error [%v] when parsing value %q of option '%s' for volume plugin %s", err, parseVolumeTypeInfo[2], "volumetype", glusterfsPluginName)
 				}
 				cfg.volumeType = gapi.VolumeDurabilityInfo{Type: gapi.DurabilityEC, Disperse: gapi.DisperseDurability{Data: newDisperseData, Redundancy: newDisperseRedundancy}}
 			} else {
