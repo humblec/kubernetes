@@ -111,6 +111,7 @@ parameters:
   gidMin: "40000"
   gidMax: "50000"
   volumetype: "replicate:3"
+  volumeoptions: "server.ssl on,client.ssl on"
 ```
 
 Example storageclass can be found in [glusterfs-storageclass.yaml](glusterfs/glusterfs-storageclass.yaml).
@@ -145,6 +146,8 @@ For example:
     `volumetype: none`
 
 For available volume types and its administration options refer: ([Administration Guide](https://access.redhat.com/documentation/en-US/Red_Hat_Storage/3.1/html/Administration_Guide/part-Overview.html))
+
+* `volumeoptions` : This option allows you to specify the gluster volume option which has to be set on the provisioned volume. The value string should be comma seperated strings which need to be set on the volume. As shown in example, if you want to enable encryption on gluster dynamically provisioned volumes you can pass `client.ssl on, server.ssl on` options. This is an optional parameter.
 
 Reference : ([How to configure Gluster on Kubernetes](https://github.com/gluster/gluster-kubernetes/blob/master/docs/setup-guide.md))
 
