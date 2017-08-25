@@ -128,10 +128,14 @@ func (plugin *glusterfsPlugin) SupportsBulkVolumeVerification() bool {
 }
 
 func (plugin *glusterfsPlugin) NewExpander(spec *volume.Spec) (volume.Expander, error) {
-	return &glusterfsDiskExpander{&glusterfs{
-		volName: spec.Name(),
-		plugin:  plugin,
-	}}, nil
+	return &glusterfsDiskExpander{
+		glusterfs: &glusterfs{
+			volName: spec.Name(),
+			plugin:  plugin,
+		},
+		spec: spec.PersistentVolume,
+	}, nil
+
 }
 
 func (plugin *glusterfsPlugin) GetAccessModes() []v1.PersistentVolumeAccessMode {
@@ -1055,12 +1059,56 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 
 type glusterfsDiskExpander struct {
 	*glusterfs
+	provisionerConfig
+	spec *v1.PersistentVolume
 }
 
 var _ volume.Expander = &glusterfsDiskExpander{}
 
 func (e *glusterfsDiskExpander) ExpandVolumeDevice(newSize resource.Quantity, oldSize resource.Quantity) error {
-	glog.Infof("********** Calling expand volume device **********")
+
+	pvSpec := e.spec.Spec
+	glog.V(2).Infof("Request to expand volume: %s ", pvSpec.Glusterfs.Path)
+	volumeName := pvSpec.Glusterfs.Path
+
+	// Fetch the volume for expansion.
+	volumeID := dstrings.TrimPrefix(volumeName, volPrefix)
+
+	//Get details of SC.
+	class, err := volutil.GetClassForVolume(e.plugin.host.GetKubeClient(), e.spec)
+	if err != nil {
+		return err
+	}
+	cfg, err := parseClassParameters(class.Parameters, e.plugin.host.GetKubeClient())
+	if err != nil {
+		return err
+	}
+	e.provisionerConfig = *cfg
+
+	glog.V(4).Infof("Expanding volume %q with configuration %+v", volumeID, e.provisionerConfig)
+
+	//Create REST server connection
+	cli := gcli.NewClient(e.url, e.user, e.secretValue)
+	if cli == nil {
+		glog.Errorf("failed to create glusterfs rest client")
+		return fmt.Errorf("failed to create glusterfs rest client, REST server authentication failed")
+	}
+
+	// Find out delta size
+	expansionSize := int(newSize.Value() - oldSize.Value())
+
+	// Make volume expansion request
+	volumeExpandReq := &gapi.VolumeExpandRequest{Size: expansionSize}
+
+	// Expand the volume
+	volumeInfoRes, err := cli.VolumeExpand(volumeID, volumeExpandReq)
+	if err != nil {
+		glog.Errorf("error when expanding the volume :%v", err)
+		return err
+	}
+
+	glog.V(2).Infof("volume %s expanded to new size %d successfully", volumeName, volumeInfoRes.Size)
+
 	return nil
 }
 
