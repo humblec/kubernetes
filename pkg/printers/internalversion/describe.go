@@ -858,6 +858,17 @@ func printGlusterfsVolumeSource(glusterfs *api.GlusterfsVolumeSource, w PrefixWr
 		glusterfs.EndpointsName, glusterfs.Path, glusterfs.ReadOnly)
 }
 
+
+func printGlusterfsPersistentVolumeSource(glusterfs *api.GlusterfsPersistentVolumeSource, w PrefixWriter) {
+	w.Write(LEVEL_2, "Type:\tGlusterfs (a Glusterfs mount on the host that shares a pod's lifetime)\n"+
+		"    EndpointsName:\t%v\n"+
+		"    EndpointsNameSpace:\t%v\n"+
+		"    Path:\t%v\n"+
+		"    ReadOnly:\t%v\n",
+		glusterfs.EndpointsName, glusterfs.EndpointsNameSpace glusterfs.Path, glusterfs.ReadOnly)
+}
+
+
 func printPersistentVolumeClaimVolumeSource(claim *api.PersistentVolumeClaimVolumeSource, w PrefixWriter) {
 	w.Write(LEVEL_2, "Type:\tPersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)\n"+
 		"    ClaimName:\t%v\n"+
@@ -1086,7 +1097,7 @@ func describePersistentVolume(pv *api.PersistentVolume, events *api.EventList) (
 		case pv.Spec.ISCSI != nil:
 			printISCSIVolumeSource(pv.Spec.ISCSI, w)
 		case pv.Spec.Glusterfs != nil:
-			printGlusterfsVolumeSource(pv.Spec.Glusterfs, w)
+			printGlusterfsPersistentVolumeSource(pv.Spec.Glusterfs, w)
 		case pv.Spec.RBD != nil:
 			printRBDVolumeSource(pv.Spec.RBD, w)
 		case pv.Spec.Quobyte != nil:

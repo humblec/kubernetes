@@ -59,6 +59,19 @@ func VisitPVSecretNames(pv *api.PersistentVolume, visitor Visitor) bool {
 				return false
 			}
 		}
+	/*case source.Glusterfs != nil:
+	if source.Glusterfs.EndpointsNameSpace != nil {
+		// previously persisted PV objects use claimRef namespace
+		ns := getClaimRefNamespace(pv)
+		if len(source.Glusterfs.EndpointsNameSpace) > 0 {
+			// use the endpoint namespace if namespace is set
+			ns = source.Glusterfs.EndpointsNameSpace
+		}
+		if !visitor(ns, source.Glusterfs.EndpointsNameSpace) {
+			return false
+		}
+	}
+	*/
 	case source.FlexVolume != nil:
 		if source.FlexVolume.SecretRef != nil && !visitor(getClaimRefNamespace(pv), source.FlexVolume.SecretRef.Name) {
 			return false

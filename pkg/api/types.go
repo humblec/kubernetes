@@ -337,7 +337,7 @@ type PersistentVolumeSource struct {
 	HostPath *HostPathVolumeSource
 	// Glusterfs represents a Glusterfs volume that is attached to a host and exposed to the pod
 	// +optional
-	Glusterfs *GlusterfsVolumeSource
+	Glusterfs *GlusterfsPersistentVolumeSource
 	// NFS represents an NFS mount on the host that shares a pod's lifetime
 	// +optional
 	NFS *NFSVolumeSource
@@ -937,6 +937,22 @@ type QuobyteVolumeSource struct {
 type GlusterfsVolumeSource struct {
 	// Required: EndpointsName is the endpoint name that details Glusterfs topology
 	EndpointsName string
+
+	// Required: Path is the Glusterfs volume path
+	Path string
+
+	// Optional: Defaults to false (read/write). ReadOnly here will force
+	// the Glusterfs to be mounted with read-only permissions
+	// +optional
+	ReadOnly bool
+}
+
+type GlusterfsPersistentVolumeSource struct {
+	// Required: EndpointsName is the endpoint name that details Glusterfs topology
+	EndpointsName string
+
+	// Optional: EndpointsNameSpace is the endpoint namespace that contain GlusterFS endpoint
+	EndpointsNameSpace string
 
 	// Required: Path is the Glusterfs volume path
 	Path string

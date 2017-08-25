@@ -827,6 +827,17 @@ func validateGlusterfsVolumeSource(glusterfs *api.GlusterfsVolumeSource, fldPath
 	return allErrs
 }
 
+func validateGlusterfsPersistentVolumeSource(glusterfs *api.GlusterfsPersistentVolumeSource, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if len(glusterfs.EndpointsName) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("endpoints"), ""))
+	}
+	if len(glusterfs.Path) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("path"), ""))
+	}
+	return allErrs
+}
+
 func validateFlockerVolumeSource(flocker *api.FlockerVolumeSource, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if len(flocker.DatasetName) == 0 && len(flocker.DatasetUUID) == 0 {
@@ -1318,7 +1329,8 @@ func ValidatePersistentVolume(pv *api.PersistentVolume) field.ErrorList {
 			allErrs = append(allErrs, field.Forbidden(specPath.Child("glusterfs"), "may not specify more than 1 volume type"))
 		} else {
 			numVolumes++
-			allErrs = append(allErrs, validateGlusterfsVolumeSource(pv.Spec.Glusterfs, specPath.Child("glusterfs"))...)
+			allErrs = append(allErrs, validateGlusterfsPersistentVolumeSource(pv.Spec.Glusterfs, specPath.Child("glusterfs"))...)
+
 		}
 	}
 	if pv.Spec.Flocker != nil {
