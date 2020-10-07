@@ -39,6 +39,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume"
 	volutil "k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/kubernetes/pkg/features"
 )
 
 var (
@@ -85,6 +87,11 @@ func (plugin *rbdPlugin) Init(host volume.VolumeHost) error {
 
 func (plugin *rbdPlugin) GetPluginName() string {
 	return rbdPluginName
+}
+
+func (plugin *rbdPlugin) IsMigratedToCSI() bool {
+	return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigration) &&
+		utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationRbd)
 }
 
 func (plugin *rbdPlugin) GetVolumeName(spec *volume.Spec) (string, error) {

@@ -431,6 +431,19 @@ const (
 	// Expects vSphere CSI Driver to be installed and configured on all nodes.
 	CSIMigrationvSphereComplete featuregate.Feature = "CSIMigrationvSphereComplete"
 
+	// owner: @humblec
+	// Alpha: v1.20
+	//
+	// Enables the RBD in-tree driver to RBD CSI Driver migration feature.
+	CSIMigrationRbd featuregate.Feature = "CSIMigrationRbd"
+
+	// owner: @humblec
+	// beta: v1.21
+	//
+	// Disables the RBD in-tree driver.
+	// Expects RBD CSI Driver to be installed and configured on all nodes.
+	CSIMigrationRbdComplete featuregate.Feature = "CSIMigrationRbdComplete"
+
 	// owner: @huffmanca
 	// alpha: v1.19
 	//
@@ -691,6 +704,8 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
 	CSIMigrationAzureFileComplete:  {Default: false, PreRelease: featuregate.Alpha},
 	CSIMigrationvSphere:            {Default: false, PreRelease: featuregate.Beta},
 	CSIMigrationvSphereComplete:    {Default: false, PreRelease: featuregate.Beta},
+	CSIMigrationRbd:            	{Default: false, PreRelease: featuregate.Alpha},
+	CSIMigrationRbdComplete:    	{Default: false, PreRelease: featuregate.Beta},
 	RunAsGroup:                     {Default: true, PreRelease: featuregate.Beta},
 	CSIMigrationOpenStack:          {Default: false, PreRelease: featuregate.Beta}, // Off by default (requires OpenStack Cinder CSI driver)
 	CSIMigrationOpenStackComplete:  {Default: false, PreRelease: featuregate.Alpha},

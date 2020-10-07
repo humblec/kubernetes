@@ -30,6 +30,7 @@ import (
 	"k8s.io/kubernetes/pkg/volume/cinder"
 	"k8s.io/kubernetes/pkg/volume/csimigration"
 	"k8s.io/kubernetes/pkg/volume/gcepd"
+	"k8s.io/kubernetes/pkg/volume/rbd"
 	"k8s.io/kubernetes/pkg/volume/vsphere_volume"
 )
 
@@ -66,6 +67,7 @@ func appendLegacyProviderVolumes(allPlugins []volume.VolumePlugin, featureGate f
 	pluginMigrationStatus[plugins.AzureDiskInTreePluginName] = pluginInfo{pluginMigrationFeature: features.CSIMigrationAzureDisk, pluginMigrationCompleteFeature: features.CSIMigrationAzureDiskComplete, pluginProbeFunction: azuredd.ProbeVolumePlugins}
 	pluginMigrationStatus[plugins.AzureFileInTreePluginName] = pluginInfo{pluginMigrationFeature: features.CSIMigrationAzureFile, pluginMigrationCompleteFeature: features.CSIMigrationAzureFileComplete, pluginProbeFunction: azure_file.ProbeVolumePlugins}
 	pluginMigrationStatus[plugins.VSphereInTreePluginName] = pluginInfo{pluginMigrationFeature: features.CSIMigrationvSphere, pluginMigrationCompleteFeature: features.CSIMigrationvSphereComplete, pluginProbeFunction: vsphere_volume.ProbeVolumePlugins}
+	pluginMigrationStatus[plugins.RbdInTreePluginName] = pluginInfo{pluginMigrationFeature: features.CSIMigrationRbd, pluginMigrationCompleteFeature: features.CSIMigrationRbdComplete, pluginProbeFunction: rbd.ProbeVolumePlugins}
 
 	var err error
 	for pluginName, pluginInfo := range pluginMigrationStatus {

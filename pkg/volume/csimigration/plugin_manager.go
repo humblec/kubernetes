@@ -70,6 +70,8 @@ func (pm PluginManager) IsMigrationCompleteForPlugin(pluginName string) bool {
 		return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationOpenStackComplete)
 	case csilibplugins.VSphereInTreePluginName:
 		return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationvSphereComplete)
+	case csilibplugins.RbdInTreePluginName:
+		return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationRbdComplete)
 	default:
 		return false
 	}
@@ -96,6 +98,8 @@ func (pm PluginManager) IsMigrationEnabledForPlugin(pluginName string) bool {
 		return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationOpenStack)
 	case csilibplugins.VSphereInTreePluginName:
 		return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationvSphere)
+	case csilibplugins.RbdInTreePluginName:
+		return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationRbd)
 	default:
 		return false
 	}
