@@ -59,6 +59,10 @@ func isCSIMigrationOn(csiNode *storagev1.CSINode, pluginName string) bool {
 		if !utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationOpenStack) {
 			return false
 		}
+	case csilibplugins.RbdVolumePluginName:
+		if !utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationRbd) {
+			return false
+		}
 	default:
 		return false
 	}

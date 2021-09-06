@@ -234,6 +234,9 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 		csitranslationplugins.VSphereInTreePluginName: func() bool {
 			return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigration) && utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationvSphere)
 		},
+		csitranslationplugins.RbdVolumePluginName: func() bool {
+			return utilfeature.DefaultFeatureGate.Enabled(features.CSIMigration) && utilfeature.DefaultFeatureGate.Enabled(features.CSIMigrationRbd)
+		},
 	}
 
 	// Initializing the label management channels
