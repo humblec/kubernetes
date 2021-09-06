@@ -72,6 +72,8 @@ func (pm PluginManager) IsMigrationCompleteForPlugin(pluginName string) bool {
 		return pm.featureGate.Enabled(features.InTreePluginOpenStackUnregister)
 	case csilibplugins.VSphereInTreePluginName:
 		return pm.featureGate.Enabled(features.InTreePluginvSphereUnregister)
+	case csilibplugins.RbdVolumePluginName:
+		return pm.featureGate.Enabled(features.InTreePluginRbdUnregister)
 	default:
 		return false
 	}
@@ -98,6 +100,8 @@ func (pm PluginManager) IsMigrationEnabledForPlugin(pluginName string) bool {
 		return pm.featureGate.Enabled(features.CSIMigrationOpenStack)
 	case csilibplugins.VSphereInTreePluginName:
 		return pm.featureGate.Enabled(features.CSIMigrationvSphere)
+	case csilibplugins.RbdVolumePluginName:
+		return pm.featureGate.Enabled(features.CSIMigrationRbd)
 	default:
 		return false
 	}
