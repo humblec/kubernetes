@@ -2646,6 +2646,36 @@ func TestValidateCSIVolumeSource(t *testing.T) {
 			name: "valid controllerExpandSecretRef",
 			csi:  &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerExpandSecretRef: &core.SecretReference{Name: "foobar", Namespace: "default"}},
 		},
+		{
+			name: "valid controllerPublishSecretRef name ( <=253 chars)",
+			csi:  &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerPublishSecretRef: &core.SecretReference{Name: strings.Repeat("a", 253), Namespace: "default"}},
+		},
+		{
+			name: "valid controllerExpandSecretRef name ( <=253 chars)",
+			csi:  &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerExpandSecretRef: &core.SecretReference{Name: strings.Repeat("a", 253), Namespace: "default"}},
+		},
+		{
+			name: "valid nodePublishSecretRef name ( <=253 chars)",
+			csi:  &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", NodePublishSecretRef: &core.SecretReference{Name: strings.Repeat("a", 253), Namespace: "default"}},
+		},
+		{
+			name:     "Invalid controllerPublishSecretRef name ( >253 chars)",
+			csi:      &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerPublishSecretRef: &core.SecretReference{Name: strings.Repeat("a", 255), Namespace: "default"}},
+			errtype:  field.ErrorTypeInvalid,
+			errfield: "controllerPublishSecretRef.name",
+		},
+		{
+			name:     "Invalid controllerExpandSecretRef name ( >253 chars)",
+			csi:      &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerExpandSecretRef: &core.SecretReference{Name: strings.Repeat("a", 255), Namespace: "default"}},
+			errtype:  field.ErrorTypeInvalid,
+			errfield: "controllerExpandSecretRef.name",
+		},
+		{
+			name:     "valid nodePublishSecretRef name ( >253 chars)",
+			csi:      &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", NodePublishSecretRef: &core.SecretReference{Name: strings.Repeat("a", 255), Namespace: "default"}},
+			errtype:  field.ErrorTypeInvalid,
+			errfield: "nodePublishSecretRef.name",
+		},
 	}
 
 	for i, tc := range testCases {
