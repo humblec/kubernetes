@@ -1564,7 +1564,9 @@ func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, fldP
 		if len(csi.ControllerPublishSecretRef.Name) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "name"), ""))
 		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerPublishSecretRef.Name, fldPath.Child("name"))...)
+			for _, msg := range ValidateSecretName(csi.ControllerPublishSecretRef.Name, false) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerPublishSecretRef", "name"), csi.ControllerPublishSecretRef.Name, msg))
+			}
 		}
 		if len(csi.ControllerPublishSecretRef.Namespace) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "namespace"), ""))
@@ -1577,7 +1579,9 @@ func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, fldP
 		if len(csi.ControllerExpandSecretRef.Name) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "name"), ""))
 		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerExpandSecretRef.Name, fldPath.Child("name"))...)
+			for _, msg := range ValidateSecretName(csi.ControllerExpandSecretRef.Name, false) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerExpandSecretRef", "name"), csi.ControllerExpandSecretRef.Name, msg))
+			}
 		}
 		if len(csi.ControllerExpandSecretRef.Namespace) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "namespace"), ""))
@@ -1590,7 +1594,9 @@ func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, fldP
 		if len(csi.NodePublishSecretRef.Name) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef ", "name"), ""))
 		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.NodePublishSecretRef.Name, fldPath.Child("name"))...)
+			for _, msg := range ValidateSecretName(csi.NodePublishSecretRef.Name, false) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("nodePublishSecretRef", "name"), csi.NodePublishSecretRef.Name, msg))
+			}
 		}
 		if len(csi.NodePublishSecretRef.Namespace) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef ", "namespace"), ""))
