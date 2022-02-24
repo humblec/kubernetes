@@ -1617,7 +1617,7 @@ func validateCSIVolumeSource(csi *core.CSIVolumeSource, fldPath *field.Path) fie
 			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef ", "name"), ""))
 		} else {
 			for _, msg := range ValidateSecretName(csi.NodePublishSecretRef.Name, false) {
-				allErrs = append(allErrs, field.Invalid(fldPath.Child("name"), csi.NodePublishSecretRef.Name, msg))
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("nodePublishSecretRef", "name"), csi.NodePublishSecretRef.Name, msg))
 			}
 		}
 	}
