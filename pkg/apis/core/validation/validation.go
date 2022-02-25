@@ -1560,50 +1560,53 @@ func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, fldP
 		allErrs = append(allErrs, field.Required(fldPath.Child("volumeHandle"), ""))
 	}
 
-	if csi.ControllerPublishSecretRef != nil {
-		if len(csi.ControllerPublishSecretRef.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "name"), ""))
-		} else {
-			for _, msg := range ValidateSecretName(csi.ControllerPublishSecretRef.Name, false) {
-				allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerPublishSecretRef", "name"), csi.ControllerPublishSecretRef.Name, msg))
+	/*
+		if csi.ControllerPublishSecretRef != nil {
+			if len(csi.ControllerPublishSecretRef.Name) == 0 {
+				allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "name"), ""))
+			} else {
+				for _, msg := range ValidateSecretName(csi.ControllerPublishSecretRef.Name, false) {
+					allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerPublishSecretRef", "name"), csi.ControllerPublishSecretRef.Name, msg))
+				}
+			}
+			if len(csi.ControllerPublishSecretRef.Namespace) == 0 {
+				allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "namespace"), ""))
+			} else {
+				allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerPublishSecretRef.Namespace, fldPath.Child("namespace"))...)
 			}
 		}
-		if len(csi.ControllerPublishSecretRef.Namespace) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "namespace"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerPublishSecretRef.Namespace, fldPath.Child("namespace"))...)
-		}
-	}
 
-	if csi.ControllerExpandSecretRef != nil {
-		if len(csi.ControllerExpandSecretRef.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "name"), ""))
-		} else {
-			for _, msg := range ValidateSecretName(csi.ControllerExpandSecretRef.Name, false) {
-				allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerExpandSecretRef", "name"), csi.ControllerExpandSecretRef.Name, msg))
+		if csi.ControllerExpandSecretRef != nil {
+			if len(csi.ControllerExpandSecretRef.Name) == 0 {
+				allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "name"), ""))
+			} else {
+				for _, msg := range ValidateSecretName(csi.ControllerExpandSecretRef.Name, false) {
+					allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerExpandSecretRef", "name"), csi.ControllerExpandSecretRef.Name, msg))
+				}
+			}
+			if len(csi.ControllerExpandSecretRef.Namespace) == 0 {
+				allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "namespace"), ""))
+			} else {
+				allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerExpandSecretRef.Namespace, fldPath.Child("namespace"))...)
 			}
 		}
-		if len(csi.ControllerExpandSecretRef.Namespace) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "namespace"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerExpandSecretRef.Namespace, fldPath.Child("namespace"))...)
-		}
-	}
 
-	if csi.NodePublishSecretRef != nil {
-		if len(csi.NodePublishSecretRef.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef", "name"), ""))
-		} else {
-			for _, msg := range ValidateSecretName(csi.NodePublishSecretRef.Name, false) {
-				allErrs = append(allErrs, field.Invalid(fldPath.Child("nodePublishSecretRef", "name"), csi.NodePublishSecretRef.Name, msg))
+		if csi.NodePublishSecretRef != nil {
+			if len(csi.NodePublishSecretRef.Name) == 0 {
+				allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef", "name"), ""))
+			} else {
+				for _, msg := range ValidateSecretName(csi.NodePublishSecretRef.Name, false) {
+					allErrs = append(allErrs, field.Invalid(fldPath.Child("nodePublishSecretRef", "name"), csi.NodePublishSecretRef.Name, msg))
+				}
+			}
+			if len(csi.NodePublishSecretRef.Namespace) == 0 {
+				allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef", "namespace"), ""))
+			} else {
+				allErrs = append(allErrs, ValidateDNS1123Label(csi.NodePublishSecretRef.Namespace, fldPath.Child("namespace"))...)
 			}
 		}
-		if len(csi.NodePublishSecretRef.Namespace) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef", "namespace"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.NodePublishSecretRef.Namespace, fldPath.Child("namespace"))...)
-		}
-	}
+
+	*/
 
 	return allErrs
 }
@@ -1665,6 +1668,7 @@ var allowedPVCTemplateObjectMetaFields = map[string]bool{
 type PersistentVolumeSpecValidationOptions struct {
 	// Allow spec to contain the "ReadWiteOncePod" access mode
 	AllowReadWriteOncePod bool
+	AllowLongSecretName   bool
 }
 
 // ValidatePersistentVolumeName checks that a name is appropriate for a
@@ -1684,6 +1688,13 @@ func ValidationOptionsForPersistentVolume(pv, oldPv *core.PersistentVolume) Pers
 	if oldPv == nil {
 		// If there's no old PV, use the options based solely on feature enablement
 		return opts
+	}
+	if oldPv.Spec.CSI != nil && oldPv.Spec.CSI.ControllerExpandSecretRef != nil {
+		for _, msg := range validation.IsDNS1123Subdomain(oldPv.Spec.CSI.ControllerExpandSecretRef.Name) {
+			if msg == "" {
+				opts.AllowLongSecretName = true
+			}
+		}
 	}
 	if helper.ContainsAccessMode(oldPv.Spec.AccessModes, core.ReadWriteOncePod) {
 		// If the old object allowed "ReadWriteOncePod", continue to allow it in the new object
@@ -1947,6 +1958,55 @@ func ValidatePersistentVolumeSpec(pvSpec *core.PersistentVolumeSpec, pvName stri
 		} else {
 			numVolumes++
 			allErrs = append(allErrs, validateCSIPersistentVolumeSource(pvSpec.CSI, fldPath.Child("csi"))...)
+
+			if opts.AllowLongSecretName {
+				csi := pvSpec.CSI
+				if csi.ControllerPublishSecretRef != nil {
+					if len(csi.ControllerPublishSecretRef.Name) == 0 {
+						allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "name"), ""))
+					} else {
+						for _, msg := range ValidateSecretName(csi.ControllerPublishSecretRef.Name, false) {
+							allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerPublishSecretRef", "name"), csi.ControllerPublishSecretRef.Name, msg))
+						}
+					}
+					if len(csi.ControllerPublishSecretRef.Namespace) == 0 {
+						allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "namespace"), ""))
+					} else {
+						allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerPublishSecretRef.Namespace, fldPath.Child("namespace"))...)
+					}
+				}
+
+				if csi.ControllerExpandSecretRef != nil {
+					if len(csi.ControllerExpandSecretRef.Name) == 0 {
+						allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "name"), ""))
+					} else {
+						for _, msg := range ValidateSecretName(csi.ControllerExpandSecretRef.Name, false) {
+							allErrs = append(allErrs, field.Invalid(fldPath.Child("controllerExpandSecretRef", "name"), csi.ControllerExpandSecretRef.Name, msg))
+						}
+					}
+					if len(csi.ControllerExpandSecretRef.Namespace) == 0 {
+						allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "namespace"), ""))
+					} else {
+						allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerExpandSecretRef.Namespace, fldPath.Child("namespace"))...)
+					}
+				}
+
+				if csi.NodePublishSecretRef != nil {
+					if len(csi.NodePublishSecretRef.Name) == 0 {
+						allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef", "name"), ""))
+					} else {
+						for _, msg := range ValidateSecretName(csi.NodePublishSecretRef.Name, false) {
+							allErrs = append(allErrs, field.Invalid(fldPath.Child("nodePublishSecretRef", "name"), csi.NodePublishSecretRef.Name, msg))
+						}
+					}
+					if len(csi.NodePublishSecretRef.Namespace) == 0 {
+						allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef", "namespace"), ""))
+					} else {
+						allErrs = append(allErrs, ValidateDNS1123Label(csi.NodePublishSecretRef.Namespace, fldPath.Child("namespace"))...)
+					}
+				}
+
+			}
 		}
 	}
 
@@ -1992,6 +2052,15 @@ func ValidatePersistentVolume(pv *core.PersistentVolume, opts PersistentVolumeSp
 // ValidatePersistentVolumeUpdate tests to see if the update is legal for an end user to make.
 // newPv is updated with fields that cannot be changed.
 func ValidatePersistentVolumeUpdate(newPv, oldPv *core.PersistentVolume, opts PersistentVolumeSpecValidationOptions) field.ErrorList {
+
+	// for csiPVs, we have to allow DNS subdomainname ONLY if oldPV got same format in place
+	if oldPv.Spec.CSI != nil && oldPv.Spec.CSI.ControllerExpandSecretRef != nil {
+		for _, msg := range validation.IsDNS1123Subdomain(oldPv.Spec.CSI.ControllerExpandSecretRef.Name) {
+			if msg == "" {
+				opts.AllowLongSecretName = true
+			}
+		}
+	}
 	allErrs := ValidatePersistentVolume(newPv, opts)
 
 	// if oldPV does not have ControllerExpandSecretRef then allow it to be set
