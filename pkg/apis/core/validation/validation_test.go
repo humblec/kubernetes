@@ -675,7 +675,14 @@ func TestValidatePersistentVolumeSourceUpdate(t *testing.T) {
 		Name:      "expansion-secret",
 		Namespace: "default",
 	}
-
+	expand1035SecretRef := &core.SecretReference{
+		Name:      strings.Repeat("g", 63),
+		Namespace: "default",
+	}
+	expandSubDomainSecretRef := &core.SecretReference{
+		Name:      strings.Repeat("g", 200),
+		Namespace: "default",
+	}
 	scenarios := map[string]struct {
 		isExpectedFailure   bool
 		csiExpansionEnabled bool
@@ -711,6 +718,30 @@ func TestValidatePersistentVolumeSourceUpdate(t *testing.T) {
 				Name:      "foo-secret",
 				Namespace: "default",
 			}),
+		},
+		"csi-expansion-enabled-with-1035-secret": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   false,
+			oldVolume:           validCSIVolume,
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expand1035SecretRef),
+		},
+		"csi-expansion-enabled-with-subdomain-secret": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   true,
+			oldVolume:           validCSIVolume,
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
+		},
+		"csi-expansion-enabled-with-short-to-long": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   true,
+			oldVolume:           getCSIVolumeWithSecret(validCSIVolume, expand1035SecretRef),
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
+		},
+		"csi-expansion-enabled-from long-to-long": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   false,
+			oldVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
 		},
 	}
 	for name, scenario := range scenarios {
@@ -2649,7 +2680,7 @@ func TestValidateCSIVolumeSource(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		errs := validateCSIPersistentVolumeSource(tc.csi, field.NewPath("field"))
+		errs := validateCSIPersistentVolumeSource(tc.csi, false, field.NewPath("field"))
 
 		if len(errs) > 0 && tc.errtype == "" {
 			t.Errorf("[%d: %q] unexpected error(s): %v", i, tc.name, errs)

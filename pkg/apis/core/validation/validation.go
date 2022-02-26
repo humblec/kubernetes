@@ -1533,6 +1533,33 @@ func validateStorageOSPersistentVolumeSource(storageos *core.StorageOSPersistent
 	return allErrs
 }
 
+// ValidateSecretReference check whether provided SecretReference object is valid in terms of secret name and namespace.
+// This also take a flag to validate the secret name against DNSSubDomainformat ( <253char)  and DNS1123Label (<63char) format.
+func ValidateSecretReference(secretRef *core.SecretReference, allowDNSSubDomainFormat bool, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if len(secretRef.Name) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("name"), ""))
+	} else {
+		if !allowDNSSubDomainFormat {
+			for _, msg := range validation.IsDNS1123Label(secretRef.Name) {
+				allErrs = append(allErrs, field.Invalid(fldPath, secretRef.Name, msg))
+			}
+		} else {
+			// we could also use validSecretName here , but for better readability sticking to below.
+			for _, msg := range validation.IsDNS1123Subdomain(secretRef.Name) {
+				allErrs = append(allErrs, field.Invalid(fldPath, secretRef.Name, msg))
+			}
+		}
+
+	}
+	if len(secretRef.Namespace) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("namespace"), ""))
+	} else {
+		allErrs = append(allErrs, ValidateDNS1123Label(secretRef.Namespace, fldPath.Child("namespace"))...)
+	}
+	return allErrs
+}
+
 func ValidateCSIDriverName(driverName string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
@@ -1551,7 +1578,7 @@ func ValidateCSIDriverName(driverName string, fldPath *field.Path) field.ErrorLi
 	return allErrs
 }
 
-func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, fldPath *field.Path) field.ErrorList {
+func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, allowDNSSubDomainSecrets bool, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateCSIDriverName(csi.Driver, fldPath.Child("driver"))...)
@@ -1559,46 +1586,29 @@ func validateCSIPersistentVolumeSource(csi *core.CSIPersistentVolumeSource, fldP
 	if len(csi.VolumeHandle) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("volumeHandle"), ""))
 	}
-
 	if csi.ControllerPublishSecretRef != nil {
-		if len(csi.ControllerPublishSecretRef.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "name"), ""))
+		if allowDNSSubDomainSecrets {
+			allErrs = append(allErrs, ValidateSecretReference(csi.ControllerPublishSecretRef, true, fldPath.Child("controllerPublishSecretRef"))...)
 		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerPublishSecretRef.Name, fldPath.Child("name"))...)
-		}
-		if len(csi.ControllerPublishSecretRef.Namespace) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerPublishSecretRef", "namespace"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerPublishSecretRef.Namespace, fldPath.Child("namespace"))...)
+			allErrs = append(allErrs, ValidateSecretReference(csi.ControllerPublishSecretRef, false, fldPath.Child("controllerPublishSecretRef"))...)
 		}
 	}
-
 	if csi.ControllerExpandSecretRef != nil {
-		if len(csi.ControllerExpandSecretRef.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "name"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerExpandSecretRef.Name, fldPath.Child("name"))...)
-		}
-		if len(csi.ControllerExpandSecretRef.Namespace) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("controllerExpandSecretRef", "namespace"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.ControllerExpandSecretRef.Namespace, fldPath.Child("namespace"))...)
-		}
-	}
 
+		if allowDNSSubDomainSecrets {
+			allErrs = append(allErrs, ValidateSecretReference(csi.ControllerExpandSecretRef, true, fldPath.Child("controllerExpandSecretRef"))...)
+		} else {
+			allErrs = append(allErrs, ValidateSecretReference(csi.ControllerExpandSecretRef, false, fldPath.Child("controllerExpandSecretRef"))...)
+		}
+
+	}
 	if csi.NodePublishSecretRef != nil {
-		if len(csi.NodePublishSecretRef.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef ", "name"), ""))
+		if allowDNSSubDomainSecrets {
+			allErrs = append(allErrs, ValidateSecretReference(csi.NodePublishSecretRef, true, fldPath.Child("NodePublishSecretRef"))...)
 		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.NodePublishSecretRef.Name, fldPath.Child("name"))...)
-		}
-		if len(csi.NodePublishSecretRef.Namespace) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("nodePublishSecretRef ", "namespace"), ""))
-		} else {
-			allErrs = append(allErrs, ValidateDNS1123Label(csi.NodePublishSecretRef.Namespace, fldPath.Child("namespace"))...)
+			allErrs = append(allErrs, ValidateSecretReference(csi.NodePublishSecretRef, false, fldPath.Child("nodePublishSecretRef"))...)
 		}
 	}
-
 	return allErrs
 }
 
@@ -1658,7 +1668,8 @@ var allowedPVCTemplateObjectMetaFields = map[string]bool{
 // PersistentVolumeSpecValidationOptions contains the different settings for PeristentVolume validation
 type PersistentVolumeSpecValidationOptions struct {
 	// Allow spec to contain the "ReadWiteOncePod" access mode
-	AllowReadWriteOncePod bool
+	AllowReadWriteOncePod        bool
+	AllowDNS1123SubDomainSecrets bool
 }
 
 // ValidatePersistentVolumeName checks that a name is appropriate for a
@@ -1940,7 +1951,13 @@ func ValidatePersistentVolumeSpec(pvSpec *core.PersistentVolumeSpec, pvName stri
 			allErrs = append(allErrs, field.Forbidden(fldPath.Child("csi"), "may not specify more than 1 volume type"))
 		} else {
 			numVolumes++
-			allErrs = append(allErrs, validateCSIPersistentVolumeSource(pvSpec.CSI, fldPath.Child("csi"))...)
+			// if the opts carry flag for allowing DNS subDomain secret names, set the callee flag.
+			if opts.AllowDNS1123SubDomainSecrets {
+				allErrs = append(allErrs, validateCSIPersistentVolumeSource(pvSpec.CSI, true, fldPath.Child("csi"))...)
+
+			} else {
+				allErrs = append(allErrs, validateCSIPersistentVolumeSource(pvSpec.CSI, false, fldPath.Child("csi"))...)
+			}
 		}
 	}
 
@@ -1986,6 +2003,16 @@ func ValidatePersistentVolume(pv *core.PersistentVolume, opts PersistentVolumeSp
 // ValidatePersistentVolumeUpdate tests to see if the update is legal for an end user to make.
 // newPv is updated with fields that cannot be changed.
 func ValidatePersistentVolumeUpdate(newPv, oldPv *core.PersistentVolume, opts PersistentVolumeSpecValidationOptions) field.ErrorList {
+	// if its CSI spec and secretName was DNS1035Label format for oldPV
+	// we should not allow updating to DNS subdomain name format.
+	if oldPv.Spec.CSI != nil && oldPv.Spec.CSI.ControllerExpandSecretRef != nil {
+		if errs := validation.IsDNS1123Subdomain(oldPv.Spec.CSI.ControllerExpandSecretRef.Name); len(errs) == 0 {
+			if errs := validation.IsDNS1123Label(oldPv.Spec.CSI.ControllerExpandSecretRef.Name); len(errs) != 0 {
+				opts.AllowDNS1123SubDomainSecrets = true
+			}
+		}
+	}
+
 	allErrs := ValidatePersistentVolume(newPv, opts)
 
 	// if oldPV does not have ControllerExpandSecretRef then allow it to be set
