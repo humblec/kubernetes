@@ -2646,6 +2646,22 @@ func TestValidateCSIVolumeSource(t *testing.T) {
 			name: "valid controllerExpandSecretRef",
 			csi:  &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerExpandSecretRef: &core.SecretReference{Name: "foobar", Namespace: "default"}},
 		},
+		{
+			name:     "controllerPublishSecretRef: invalid name missing",
+			csi:      &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerPublishSecretRef: &core.SecretReference{Namespace: "default"}},
+			errtype:  field.ErrorTypeRequired,
+			errfield: "controllerPublishSecretRef.name",
+		},
+		{
+			name:     "controllerPublishSecretRef: invalid namespace missing",
+			csi:      &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerPublishSecretRef: &core.SecretReference{Name: "foobar"}},
+			errtype:  field.ErrorTypeRequired,
+			errfield: "controllerPublishSecretRef.namespace",
+		},
+		{
+			name: "valid controllerPublishSecretRef",
+			csi:  &core.CSIPersistentVolumeSource{Driver: "com.google.gcepd", VolumeHandle: "foobar", ControllerPublishSecretRef: &core.SecretReference{Name: "foobar", Namespace: "default"}},
+		},
 	}
 
 	for i, tc := range testCases {
