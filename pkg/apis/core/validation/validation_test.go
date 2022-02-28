@@ -675,6 +675,16 @@ func TestValidatePersistentVolumeSourceUpdate(t *testing.T) {
 		Name:      "expansion-secret",
 		Namespace: "default",
 	}
+	// secret we allow today which is of RFC 1035
+	expandDNS1035SecretRef := &core.SecretReference{
+		Name:      strings.Repeat("g", 63),
+		Namespace: "default",
+	}
+
+	expandSubDomainSecretRef := &core.SecretReference{
+		Name:      strings.Repeat("g", 200),
+		Namespace: "default",
+	}
 
 	scenarios := map[string]struct {
 		isExpectedFailure   bool
@@ -711,6 +721,30 @@ func TestValidatePersistentVolumeSourceUpdate(t *testing.T) {
 				Name:      "foo-secret",
 				Namespace: "default",
 			}),
+		},
+		"csi-expansion-enabled-with-DNS1035-secret": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   false,
+			oldVolume:           validCSIVolume,
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandDNS1035SecretRef),
+		},
+		"csi-expansion-enabled-with-DNSSubDomain-secret": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   true,
+			oldVolume:           validCSIVolume,
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
+		},
+		"csi-expansion-enabled-with-DNS1035-to-DNSSubDomain": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   true,
+			oldVolume:           getCSIVolumeWithSecret(validCSIVolume, expandDNS1035SecretRef),
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
+		},
+		"csi-expansion-enabled-from DNSSubDomain-to-DNSSubDomain": {
+			csiExpansionEnabled: true,
+			isExpectedFailure:   true,
+			oldVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
+			newVolume:           getCSIVolumeWithSecret(validCSIVolume, expandSubDomainSecretRef),
 		},
 	}
 	for name, scenario := range scenarios {
@@ -2583,7 +2617,7 @@ func TestValidateCSIVolumeSource(t *testing.T) {
 			errfield: "driver",
 		},
 		{
-			name: "driver name: ok beginnin with number",
+			name: "driver name: ok beginning with number",
 			csi:  &core.CSIPersistentVolumeSource{Driver: "2io.kubernetes.storage-csi.flex", VolumeHandle: "test-123"},
 		},
 		{
