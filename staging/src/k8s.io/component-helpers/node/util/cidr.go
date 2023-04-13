@@ -16,17 +16,6 @@ limitations under the License.
 
 package util
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
-)
-
 type nodeForCIDRMergePatch struct {
 	Spec nodeSpecForMergePatch `json:"spec"`
 }
@@ -34,25 +23,4 @@ type nodeForCIDRMergePatch struct {
 type nodeSpecForMergePatch struct {
 	PodCIDR  string   `json:"podCIDR"`
 	PodCIDRs []string `json:"podCIDRs,omitempty"`
-}
-
-// PatchNodeCIDRs patches the specified node.CIDR=cidrs[0] and node.CIDRs to the given value.
-func PatchNodeCIDRs(c clientset.Interface, node types.NodeName, cidrs []string) error {
-	// set the pod cidrs list and set the old pod cidr field
-	patch := nodeForCIDRMergePatch{
-		Spec: nodeSpecForMergePatch{
-			PodCIDR:  cidrs[0],
-			PodCIDRs: cidrs,
-		},
-	}
-
-	patchBytes, err := json.Marshal(&patch)
-	if err != nil {
-		return fmt.Errorf("failed to json.Marshal CIDR: %v", err)
-	}
-	klog.V(4).Infof("cidrs patch bytes are:%s", string(patchBytes))
-	if _, err := c.CoreV1().Nodes().Patch(context.TODO(), string(node), types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-		return fmt.Errorf("failed to patch node CIDR: %v", err)
-	}
-	return nil
 }
