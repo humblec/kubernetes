@@ -1543,8 +1543,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationsstoragev1.VolumeNodeResourcesApplyConfiguration{}
 
 		// Group=storage.k8s.io, Version=v1alpha1
-	case storagev1alpha1.SchemeGroupVersion.WithKind("CSIStorageCapacity"):
-		return &applyconfigurationsstoragev1alpha1.CSIStorageCapacityApplyConfiguration{}
 	case storagev1alpha1.SchemeGroupVersion.WithKind("VolumeAttachment"):
 		return &applyconfigurationsstoragev1alpha1.VolumeAttachmentApplyConfiguration{}
 	case storagev1alpha1.SchemeGroupVersion.WithKind("VolumeAttachmentSource"):
