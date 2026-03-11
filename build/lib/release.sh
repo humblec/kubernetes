@@ -353,7 +353,7 @@ function kube::release::create_docker_images_for_server() {
         ln "${binary_file_path}" "${docker_build_path}/${binary_name}"
 
         local build_log="${docker_build_path}/build.log"
-        if ! DOCKER_CLI_EXPERIMENTAL=enabled "${DOCKER[@]}" buildx build \
+        if ! "${DOCKER[@]}" buildx build \
           -f "${docker_file_path}" \
           --platform linux/"${arch}" \
           --load ${docker_build_opts:+"${docker_build_opts}"} \
