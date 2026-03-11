@@ -272,9 +272,7 @@ function kube::build::docker_image_exists() {
 # $1: The base container prefix
 # $2: The current container to keep, if provided
 function kube::build::docker_delete_old_containers() {
-  # In Docker 1.12 we can replace this line with
-  #   docker ps -a --format="{{.Names}}"
-  for container in $("${DOCKER[@]}" ps -a | tail -n +2 | awk '{print $NF}') ; do
+  for container in $("${DOCKER[@]}" ps -a --format="{{.Names}}") ; do
     if [[ "${container}" != "${1}"* ]] ; then
       V=3 kube::log::status "Keeping container ${container}"
       continue
