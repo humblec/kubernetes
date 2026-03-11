@@ -252,7 +252,7 @@ function kube::release::package_server_tarballs() {
 }
 
 function kube::release::md5() {
-  if which md5 >/dev/null 2>&1; then
+  if command -v md5 >/dev/null 2>&1; then
     md5 -q "$1"
   else
     md5sum "$1" | awk '{ print $1 }'
@@ -260,7 +260,7 @@ function kube::release::md5() {
 }
 
 function kube::release::sha1() {
-  if which sha1sum >/dev/null 2>&1; then
+  if command -v sha1sum >/dev/null 2>&1; then
     sha1sum "$1" | awk '{ print $1 }'
   else
     shasum -a1 "$1" | awk '{ print $1 }'

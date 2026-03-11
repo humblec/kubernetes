@@ -218,7 +218,7 @@ function kube::build::is_gnu_sed() {
 }
 
 function kube::build::ensure_docker_in_path() {
-  if [[ -z "$(which docker)" ]]; then
+  if ! command -v docker &>/dev/null; then
     kube::log::error "Can't find 'docker' in PATH, please fix and retry."
     kube::log::error "See https://docs.docker.com/installation/#installation for installation instructions."
     return 1
@@ -232,10 +232,10 @@ function kube::build::ensure_tar() {
 
   # Find gnu tar if it is available, bomb out if not.
   TAR=tar
-  if which gtar &>/dev/null; then
+  if command -v gtar &>/dev/null; then
       TAR=gtar
   else
-      if which gnutar &>/dev/null; then
+      if command -v gnutar &>/dev/null; then
 	  TAR=gnutar
       fi
   fi
@@ -247,11 +247,11 @@ function kube::build::ensure_tar() {
 }
 
 function kube::build::has_docker() {
-  which docker &> /dev/null
+  command -v docker &> /dev/null
 }
 
 function kube::build::has_ip() {
-  which ip &> /dev/null && ip -Version | grep 'iproute2' &> /dev/null
+  command -v ip &> /dev/null && ip -Version | grep 'iproute2' &> /dev/null
 }
 
 # Detect if a specific image exists
@@ -294,7 +294,7 @@ function kube::build::short_hash() {
   }
 
   local short_hash
-  if which md5 >/dev/null 2>&1; then
+  if command -v md5 >/dev/null 2>&1; then
     short_hash=$(md5 -q -s "$1")
   else
     short_hash=$(echo -n "$1" | md5sum)
